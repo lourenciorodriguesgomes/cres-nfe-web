@@ -211,5 +211,4 @@ router.get('/exportar', async (req, res) => {
         res.status(500).send('Erro ao exportar');
     }
 });
-
 module.exports = router;

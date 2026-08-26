@@ -19,7 +19,7 @@ cd caminho\para\o\seu\projeto
 
 5. Crie o commit (salva as alterações com uma mensagem):
   
-   git commit -m "Relatorio mensal, aba Mapa de Clientes e correcoes"
+   git commit -m "primeira Aba "
 
 
 6. Envie para o GitHub:

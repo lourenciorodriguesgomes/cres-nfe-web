@@ -6,8 +6,6 @@ console.log('SENHA LIDA DO .ENV:', process.env.DB_PASSWORD || '(VAZIA ou não de
 
 
 
-
-
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST || process.env.DB_HOST || 'localhost',
   user: process.env.MYSQL_USER || process.env.DB_USER || 'root',
