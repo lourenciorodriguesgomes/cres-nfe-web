@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRES NFe - Login</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { margin: 0; padding: 0; background: linear-gradient(135deg, #2c3e50, #1a252f); height: 100vh; display: flex; align-items: center; justify-content: center; font-family: Arial, sans-serif; }
+    .login-box { background: white; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); padding: 40px; width: 360px; }
+    .login-header { text-align: center; margin-bottom: 30px; }
+    .login-header h1 { color: #2c3e50; font-size: 28px; margin: 0; }
+    .login-header span { color: #95a5a6; font-size: 13px; }
+    .login-field { margin-bottom: 20px; }
+    .login-field label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; font-size: 13px; }
+    .login-field input { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px; box-sizing: border-box; }
+    .login-field input:focus { border-color: #3498db; outline: none; }
+    .login-error { color: #e74c3c; text-align: center; font-size: 13px; margin-bottom: 15px; display: none; }
+    .login-btn { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; }
+    .login-btn:hover { background: #219a52; }
+    .login-info { text-align: center; margin-top: 15px; font-size: 12px; color: #95a5a6; }
+    .login-name-display { display: none; text-align: center; margin-bottom: 20px; }
+    .login-name-display span { font-size: 18px; font-weight: bold; color: #2c3e50; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-header">
+      <h1>CRES NFe</h1>
+      <span>Sistema de Gestão - Web 1.0</span>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div class="login-field">
+      <label>Código do Operador</label>
+      <input type="text" id="codigo" placeholder="Digite seu código" autofocus oninput="buscarNome()">
+    </div>
+    <div class="login-name-display" id="nomeDisplay">
+      <span id="nomeOperador"></span>
+    </div>
+    <div class="login-field">
+      <label>Senha do Operador</label>
+      <input type="password" id="senha" placeholder="Digite a senha" onkeydown="if(event.key==='Enter') fazerLogin()">
+    </div>
+    <button class="login-btn" onclick="fazerLogin()">Entrar</button>
+    <div class="login-info">© CRES NFe - Todos os direitos reservados</div>
+  </div>
+  <script>
+    var nomeValido = '';
+
+    function buscarNome() {
+      var cod = document.getElementById('codigo').value.trim();
+      var display = document.getElementById('nomeDisplay');
+      var nomeSpan = document.getElementById('nomeOperador');
+      if (!cod) { display.style.display = 'none'; nomeValido = ''; return; }
+      fetch('/api/buscar-operador?codigo=' + encodeURIComponent(cod))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.nome) {
+            nomeValido = data.nome;
+            nomeSpan.textContent = data.nome;
+            display.style.display = 'block';
+          } else {
+            nomeValido = '';
+            display.style.display = 'none';
+          }
+        })
+        .catch(function() {
+          nomeValido = '';
+          display.style.display = 'none';
+        });
+    }
+
+    function fazerLogin() {
+      var codigo = document.getElementById('codigo').value.trim();
+      var senha = document.getElementById('senha').value.trim();
+      var erro = document.getElementById('loginError');
+      if (!codigo || !senha) {
+        erro.textContent = 'Preencha código e senha';
+        erro.style.display = 'block';
+        return;
+      }
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo: codigo, senha: senha })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data.success) {
+            window.location.href = '/';
+          } else {
+            erro.textContent = data.message || 'Erro ao entrar';
+            erro.style.display = 'block';
+          }
+        })
+        .catch(function() {
+          erro.textContent = 'Erro de conexão';
+          erro.style.display = 'block';
+        });
+    }
+  </script>
+</body>
+</html>

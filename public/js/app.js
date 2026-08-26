@@ -1,11 +1,28 @@
 const API = '/api';
+
+// Carrega dados do operador logado
+fetch('/api/verificar')
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data.logado) {
+      window.location.href = '/login';
+      return;
+    }
+    document.getElementById('operadorInfo').textContent = 'Operador: ' + data.operador.codigo + ' - ' + data.operador.nome;
+  })
+  .catch(function() {
+    window.location.href = '/login';
+  });
+
+
+
+
 const pageTitles = {
-  bancos: 'Bancos', estoque: 'Estoque', funcionarios: 'Funcionarios',
-  cadastros: 'Cadastros', movimentos: 'Movimentos', nfe: 'NF-e',
-  crm: 'CRM', sintegra: 'Sintegra', fluxocaixa: 'Fluxo de Caixa',
-  caixa: 'Caixa', repasse: 'Repasse', configura: 'Configura',
-  utilitarios: 'Utilitarios', backup: 'Backup', suporte: 'Suporte'
+bancos: 'Bancos', mapacli: 'Mapa de Clientes', contacorrente: 'Conta Corrente', extrato: 'Extrato', conciliacao: 'Conciliação', extratoct: 'Extrato CT', categoria: 'Categoria', subcategoria: 'Sub Categoria', estoque: 'Estoque',
 };
+
+
+
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -16,16 +33,58 @@ document.querySelectorAll('.nav-item').forEach(item => {
     await loadPage(page);
   });
 });
+
 async function loadPage(page) {
   const content = document.getElementById('pageContent');
-  if (page === 'bancos') {
+  var tabMap = {
+    'bancos': 'contas', 'contacorrente': 'contas',
+    'extrato': 'extratos', 'conciliacao': 'conciliacao',
+    'extratoct': 'extrato_ct', 'categoria': 'categoria'
+  };
+  if (tabMap[page]) {
     content.innerHTML = getBancosPageHTML();
-    await loadContas();
-    await checkDbConnection();
+    switchTab(null, tabMap[page]);
+    if (tabMap[page] === 'contas') {
+      await loadContas();
+      await checkDbConnection();
+    }
+  } else if (page === 'mapacli') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/mapacli');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('mapacliScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'mapacliScript';
+      s.src = '/js/mapacli.js';
+      document.body.appendChild(s);
+    } catch(err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+  } else if (page === 'subcategoria') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/subcategoria');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('subcatScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'subcatScript';
+      s.src = '/js/subcategoria.js';
+      document.body.appendChild(s);
+    } catch(err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
   } else {
     content.innerHTML = '<div class="card"><h2 style="color:var(--text-muted);text-align:center;padding:60px 0;">Modulo pendente</h2></div>';
   }
 }
+
+
+
 function getBancosPageHTML() {
   return '' +
     '<div class="tabs">' +
@@ -34,8 +93,9 @@ function getBancosPageHTML() {
       '<div class="tab" onclick="switchTab(event,\'extrato_ct\')">Extrato CT (Centro Custo)</div>' +
       '<div class="tab" onclick="switchTab(event,\'conciliacao\')">Conciliacao</div>' +
       '<div class="tab" onclick="switchTab(event,\'categoria\')">Categoria</div>' +
+	  '<div class="tab" onclick="switchTab(event,\'mapacli\')">Mapa de Clientes</div>' +  
       '<div class="tab" onclick="switchTab(event,\'relatorios\')">Relatorios</div>' +
-      '<div class="tab" onclick="switchTab(event,\'motivos\')">Motivos Dev. Cheque</div>' +
+	  '<div class="tab" onclick="switchTab(event,\'motivos\')">Motivos Dev. Cheque</div>' +
     '</div>' +
     '<div id="tab-contas" class="tab-content">' +
       '<div class="card">' +
@@ -236,13 +296,16 @@ function getBancosPageHTML() {
         '</div>' +
       '</div>' +
     '</div>' +
+	'<div id="tab-mapacli" class="tab-content" style="display:none;">' +
+  '<div id="mapacliContainer"><p style="text-align:center;padding:40px;">Carregando Mapa de Clientes...</p></div>' +
+  '</div>' +
     '<div id="tab-relatorios" class="tab-content" style="display:none;">' +
       '<div class="card">' +
         '<div class="card-header">' +
           '<span class="card-title">Resumo Trimestral por Categoria</span>' +
           '<div style="display:flex;gap:8px;align-items:center;">' +
             '<input type="number" class="form-control" id="anoRelatorio" style="width:100px;" value="' + new Date().getFullYear() + '">' +
-            '<button class="btn btn-primary btn-sm" onclick="loadRelatorioTrimestral()">Gerar</button>' +
+            '<button class="btn btn-primary btn-sm" onclick="loadRelatorioTrimestral()">Trimestre</button>' +
             '<button class="btn btn-outline btn-sm" onclick="loadRelatorioMensal()">Mensal</button>' +
           '</div>' +
         '</div>' +
@@ -277,17 +340,44 @@ async function safeJson(res) {
     throw new Error('Resposta invalida do servidor (nao e JSON)');
   }
 }
+
+
+async function loadMapaCliTab() {
+  var container = document.getElementById('mapacliContainer');
+  if (!container) return;
+  container.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+  try {
+    const resp = await fetch('/mapacli');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const html = await resp.text();
+    container.innerHTML = html;
+    var old = document.getElementById('mapacliScript');
+    if (old) old.remove();
+    var s = document.createElement('script');
+    s.id = 'mapacliScript';
+    s.src = '/js/mapacli.js';
+    document.body.appendChild(s);
+  } catch(err) {
+    container.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+  }
+}
+
+
+
 // ============================================================
 // SWITCH DE ABAS
 // ============================================================
 function switchTab(e, tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  e.target.classList.add('active');
+  if (e && e.target) e.target.classList.add('active');
   document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-  document.getElementById('tab-' + tab).style.display = 'block';
+  var el = document.getElementById('tab-' + tab);
+  if (el) el.style.display = 'block';
   if (tab === 'motivos') loadMotivos();
   if (tab === 'categoria') loadCategorias();
+  if (tab === 'mapacli') loadMapaCliTab();
 }
+
 // ============================================================
 // CONEXAO DB
 // ============================================================
@@ -393,58 +483,79 @@ async function loadExtratos() {
   const di = val('filtroDataIni'), df = val('filtroDataFim'), banco = val('filtroBanco');
   const tipo = val('filtroTipo'), beneficiario = val('filtroBeneficiario');
   const limite = val('filtroLimite') || 50;
+
   if (di) params.append('dataInicial', di);
   if (df) params.append('dataFinal', df);
   if (banco) params.append('banco', banco);
   if (tipo) params.append('tipo', tipo);
   if (beneficiario) params.append('beneficiario', beneficiario);
   if (limite) params.append('limite', limite);
+
   try {
     const res = await fetch(API + '/bancos/extratos?' + params.toString());
-    if (!res.ok) { showToast('Erro HTTP ' + res.status, 'error'); return; }
+    if (!res.ok) {
+      showToast('Erro HTTP ' + res.status, 'error');
+      return;
+    }
+
     const data = await safeJson(res);
+    const dados = data?.dados || [];
+
     let totalCredito = 0;
     let totalDebito = 0;
-    if (data.dados && data.dados.length > 0) {
-      data.dados.forEach(function(e) {
-        const valor = parseFloat(e.valor) || 0;
-        if (e.tipo === 'C') {
-          totalCredito += valor;
-        } else if (e.tipo === 'D') {
-          if (valor > 0) { totalDebito -= valor; } else { totalDebito += valor; }
-        }
-      });
-    }
+
+    dados.forEach(e => {
+      const valor = parseFloat(e.valor) || 0;
+      if (e.tipo === 'C') {
+        totalCredito += valor;
+      } else if (e.tipo === 'D') {
+        totalDebito += Math.abs(valor); // débito sempre positivo
+      }
+    });
+
     document.getElementById('totalCredito').textContent = formatMoney(totalCredito);
     document.getElementById('totalDebito').textContent = formatMoney(totalDebito);
-    document.getElementById('saldoExtrato').textContent = formatMoney(totalCredito + totalDebito);
+    document.getElementById('saldoExtrato').textContent = formatMoney(totalCredito - totalDebito);
+
     const tbody = document.getElementById('extratosTableBody');
-    if (!data.dados || data.dados.length === 0) {
+
+    if (dados.length === 0) {
       tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--text-muted);">Nenhum extrato</td></tr>';
       return;
     }
-    tbody.innerHTML = data.dados.map((e, i) =>
-      '<tr style="font-size:11px;">' +
-        '<td>' + (i + 1) + '</td>' +
-        '<td>' + (e.banco || '') + '</td>' +
-        '<td>' + (e.agencia || '') + '</td>' +
-        '<td>' + (e.conta || '') + '</td>' +
-        '<td style="font-size:9px;color:var(--text-muted);">' + (e.transactionId || '').substring(0, 12) + '</td>' +
-        '<td><span class="badge ' + (e.tipo === 'C' ? 'badge-success' : 'badge-danger') + '" style="font-size:10px;">' + (e.tipo || '') + '</span></td>' +
-        '<td style="font-weight:600;color:' + (e.tipo === 'C' ? 'var(--success)' : 'var(--danger)') + '">' + formatMoney(e.valor) + '</td>' +
-        '<td>' + formatDate(e.data) + '</td>' +
-        '<td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">' + (e.descricao || '') + '</td>' +
-        '<td>' + (e.numerodocumento || '') + '</td>' +
-        '<td style="font-size:10px;">' + (e.cpfcnpj || '') + '</td>' +
-        '<td>' + (e.beneficiario || '') + '</td>' +
-        '<td style="font-size:10px;">' + (e.descInfcomplementar || '') + '</td>' +
-        '<td>' + formatMoney(e.orcamento) + '</td>' +
-      '</tr>'
+
+    tbody.innerHTML = dados.map((e, i) =>
+      `<tr style="font-size:11px;">
+        <td>${i + 1}</td>
+        <td>${e.banco || ''}</td>
+        <td>${e.agencia || ''}</td>
+        <td>${e.conta || ''}</td>
+        <td style="font-size:9px;color:var(--text-muted);">${(e.transactionId || '').substring(0, 12)}</td>
+        <td><span class="badge ${e.tipo === 'C' ? 'badge-success' : 'badge-danger'}" style="font-size:10px;">${e.tipo || ''}</span></td>
+        <td style="font-weight:600;color:${e.tipo === 'C' ? 'var(--success)' : 'var(--danger)'}">${formatMoney(e.valor)}</td>
+        <td>${formatDate(e.data)}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${e.descricao || ''}</td>
+        <td>${e.numerodocumento || ''}</td>
+        <td style="font-size:10px;">${e.cpfcnpj || ''}</td>
+        <td>${e.beneficiario || ''}</td>
+        <td style="font-size:10px;">${e.descInfcomplementar || ''}</td>
+        <td>${formatMoney(e.orcamento)}</td>
+      </tr>`
     ).join('');
+
+    // Adicionar ordenação aos cabeçalhos (apenas uma vez)
+    const ths = document.querySelectorAll('#tab-extratos thead th');
+    ths.forEach((th, i) => {
+      th.style.cursor = 'pointer';
+      th.onclick = () => ordenarExtrato(i);
+    });
+
   } catch (err) {
     showToast('Erro: ' + err.message, 'error');
   }
 }
+
+	
 // ============================================================
 // EXTRATO CT - VARIAVEIS GLOBAIS
 // ============================================================
@@ -560,6 +671,11 @@ async function loadExtratoCT() {
     showToast('Erro ao carregar extratos: ' + err.message, 'error');
   }
 }
+
+
+
+
+
 // ============================================================
 // RENDERIZAR TABELA EXTRATO CT
 // ============================================================
@@ -1329,34 +1445,325 @@ async function loadRelatorioTrimestral() {
     showToast('Erro: ' + err.message, 'error');
   }
 }
-async function loadRelatorioMensal() {
+
+
+async function loadRelatorioTrimestral() {
   const ano = val('anoRelatorio');
+  const tipoEl = document.getElementById('relTipoFilter');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  
+  const params = new URLSearchParams();
+  params.append('ano', ano);
+  if (tipo && tipo !== 'todos') params.append('tipo', tipo);
+  
   try {
-    const res = await fetch(API + '/bancos/relatorios/mensal?ano=' + ano);
+    const res = await fetch(API + '/bancos/relatorios/trimestral?' + params.toString());
     if (!res.ok) { showToast('Erro HTTP ' + res.status, 'error'); return; }
     const data = await safeJson(res);
     const container = document.getElementById('relatorioContainer');
+    
+    let html = '<div class="relatorio-toolbar" style="display:flex;gap:8px;margin-bottom:15px;align-items:center;flex-wrap:wrap;">' +
+      '<label style="font-weight:bold;font-size:13px;">Tipo:</label>' +
+      '<select id="relTipoFilter" onchange="loadRelatorioTrimestral()" style="padding:6px 12px;border:1px solid #ccc;border-radius:4px;font-size:13px;">' +
+        '<option value="todos"' + (tipo === 'todos' ? ' selected' : '') + '>Todos</option>' +
+        '<option value="D"' + (tipo === 'D' ? ' selected' : '') + '>Debito</option>' +
+        '<option value="C"' + (tipo === 'C' ? ' selected' : '') + '>Credito</option>' +
+      '</select>' +
+      '<button class="mapa-btn" onclick="imprimirRelatorio()" style="padding:6px 12px;cursor:pointer;">Imprimir</button>' +
+      '<button class="mapa-btn" onclick="exportarRelatorio()" style="padding:6px 12px;cursor:pointer;">Exportar Excel</button>' +
+    '</div>';
+    
     if (!data.dados || data.dados.length === 0) {
-      container.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:40px;">Sem dados</p>';
+      html += '<p style="text-align:center;color:var(--text-muted);padding:40px;">Sem dados para ' + ano + '</p>';
+      container.innerHTML = html;
       return;
     }
-    const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    let html = '<table style="font-size:11px;"><thead><tr><th>Beneficiario</th>';
-    meses.forEach(m => html += '<th style="text-align:right">' + m + '</th>');
-    html += '<th style="text-align:right">Total</th></tr></thead><tbody>';
-    data.dados.forEach(d => {
-      html += '<tr><td>' + (d.beneficiario || d.cpfcnpj || '') + '</td>';
-      ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'mes_set', 'mes_out', 'nov', 'dez'].forEach(m => {
-        html += '<td style="text-align:right">' + formatMoney(d[m]) + '</td>';
-      });
-      html += '<td style="text-align:right;font-weight:700">' + formatMoney(d.total) + '</td></tr>';
+    
+    const totais = data.totais || { tri1: 0, tri2: 0, tri3: 0, tri4: 0, total: 0 };
+    
+    html += '<table class="mapa-table" id="tabelaRelatorio"><thead><tr>' +
+      '<th style="cursor:pointer;user-select:none;" onclick="ordenarRelatorio(0)">Ord</th>' +
+      '<th style="cursor:pointer;user-select:none;" onclick="ordenarRelatorio(1)">Categoria</th>' +
+      '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorio(2)">1 Tri</th>' +
+      '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorio(3)">2 Tri</th>' +
+      '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorio(4)">3 Tri</th>' +
+      '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorio(5)">4 Tri</th>' +
+      '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorio(6)">Total</th>' +
+    '</tr></thead><tbody id="relatorioBody">';
+    
+    data.dados.forEach((d) => {
+      html += '<tr>' +
+        '<td style="text-align:center">' + (d.cod || '') + '</td>' +
+        '<td>' + (d.desc || '') + '</td>' +
+        '<td style="text-align:right">' + formatMoney(d.tri1) + '</td>' +
+        '<td style="text-align:right">' + formatMoney(d.tri2) + '</td>' +
+        '<td style="text-align:right">' + formatMoney(d.tri3) + '</td>' +
+        '<td style="text-align:right">' + formatMoney(d.tri4) + '</td>' +
+        '<td style="text-align:right;font-weight:700">' + formatMoney(d.total) + '</td>' +
+      '</tr>';
     });
+    
+    html += '<tr style="font-weight:700;background:#34495e;color:white;">' +
+      '<td colspan="2" style="text-align:right">TOTAL GERAL - ' + ano + '</td>' +
+      '<td style="text-align:right">' + formatMoney(totais.tri1) + '</td>' +
+      '<td style="text-align:right">' + formatMoney(totais.tri2) + '</td>' +
+      '<td style="text-align:right">' + formatMoney(totais.tri3) + '</td>' +
+      '<td style="text-align:right">' + formatMoney(totais.tri4) + '</td>' +
+      '<td style="text-align:right">' + formatMoney(totais.total) + '</td>' +
+    '</tr>';
+    
     html += '</tbody></table>';
     container.innerHTML = html;
   } catch (err) {
     showToast('Erro: ' + err.message, 'error');
   }
 }
+
+// Variaveis de ordenacao do relatorio
+var ordemAscRel = true;
+var colunaOrdenadaRel = -1;
+
+function ordenarRelatorio(col) {
+  var tbody = document.getElementById('relatorioBody');
+  if (!tbody) return;
+  
+  // Pega todas as linhas exceto a ultima (total geral)
+  var linhas = Array.from(tbody.querySelectorAll('tr'));
+  var linhaTotal = linhas.pop();
+  
+  if (linhas.length === 0) return;
+  
+  ordemAscRel = (col === colunaOrdenadaRel) ? !ordemAscRel : true;
+  colunaOrdenadaRel = col;
+  
+  linhas.sort(function(a, b) {
+    var va = a.cells[col].textContent.trim();
+    var vb = b.cells[col].textContent.trim();
+    
+    // Colunas numericas (2 a 6)
+    if (col >= 2 && col <= 6) {
+      var na = parseFloat(va.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+      var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+      return ordemAscRel ? na - nb : nb - na;
+    }
+    
+    // Coluna 0 (Ord) - numerico
+    if (col === 0) {
+      return ordemAscRel ? va.localeCompare(vb, undefined, { numeric: true }) : vb.localeCompare(va, undefined, { numeric: true });
+    }
+    
+    // Coluna 1 (Categoria) - texto
+    return ordemAscRel ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  
+  // Reinsere as linhas ordenadas + linha de total
+  linhas.forEach(function(l) { tbody.appendChild(l); });
+  tbody.appendChild(linhaTotal);
+}
+
+function imprimirRelatorio() {
+  window.print();
+}
+
+function exportarRelatorio() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilter');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/trimestral/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+
+
+function imprimirRelatorio() {
+  window.print();
+}
+
+function exportarRelatorio() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilter');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/trimestral/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+function imprimirRelatorio() {
+  window.print();
+}
+
+function exportarRelatorio() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilter');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/trimestral/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+
+
+
+
+function imprimirRelatorio() {
+  window.print();
+}
+
+function exportarRelatorio() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilter');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/trimestral/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+
+async function loadRelatorioMensal() {
+  const ano = val('anoRelatorio');
+  const tipoEl = document.getElementById('relTipoFilterMensal');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+
+  const params = new URLSearchParams();
+  params.append('ano', ano);
+  if (tipo && tipo !== 'todos') params.append('tipo', tipo);
+
+  try {
+    const res = await fetch(API + '/bancos/relatorios/mensal?' + params.toString());
+    if (!res.ok) { showToast('Erro HTTP ' + res.status, 'error'); return; }
+    const data = await safeJson(res);
+    const container = document.getElementById('relatorioContainer');
+
+    let html = '<h2 style="margin:0 0 15px 0;color:var(--text-primary);">Resumo Mensal por Beneficiario - ' + ano + '</h2>';
+
+    html += '<div class="relatorio-toolbar" style="display:flex;gap:8px;margin-bottom:15px;align-items:center;flex-wrap:wrap;">' +
+      '<label style="font-weight:bold;font-size:13px;">Tipo:</label>' +
+      '<select id="relTipoFilterMensal" onchange="loadRelatorioMensal()" style="padding:6px 12px;border:1px solid #ccc;border-radius:4px;font-size:13px;">' +
+        '<option value="todos"' + (tipo === 'todos' ? ' selected' : '') + '>Todos</option>' +
+        '<option value="D"' + (tipo === 'D' ? ' selected' : '') + '>Debito</option>' +
+        '<option value="C"' + (tipo === 'C' ? ' selected' : '') + '>Credito</option>' +
+      '</select>' +
+      '<button class="mapa-btn" onclick="imprimirRelatorio()" style="padding:7px 16px;cursor:pointer;background:#27ae60;color:white;border:none;border-radius:5px;font-size:13px;font-weight:bold;">Imprimir</button>' +
+      '<button class="mapa-btn" onclick="exportarRelatorioMensal()" style="padding:7px 16px;cursor:pointer;background:#2980b9;color:white;border:none;border-radius:5px;font-size:13px;font-weight:bold;">Exportar Excel</button>' +
+    '</div>';
+
+    if (!data.dados || data.dados.length === 0) {
+      html += '<p style="text-align:center;color:var(--text-muted);padding:40px;">Sem dados para ' + ano + '</p>';
+      container.innerHTML = html;
+      return;
+    }
+
+    const t = data.totais || {};
+    const meses = [
+      { key: 'jan', label: 'Jan' }, { key: 'fev', label: 'Fev' },
+      { key: 'mar', label: 'Mar' }, { key: 'abr', label: 'Abr' },
+      { key: 'mai', label: 'Mai' }, { key: 'jun', label: 'Jun' },
+      { key: 'jul', label: 'Jul' }, { key: 'ago', label: 'Ago' },
+      { key: 'set', label: 'Set' }, { key: 'out', label: 'Out' },
+      { key: 'nov', label: 'Nov' }, { key: 'dez', label: 'Dez' }
+    ];
+
+    html += '<table class="mapa-table" id="tabelaRelatorio" style="font-size:12px;"><thead><tr>' +
+      '<th style="cursor:pointer;user-select:none;" onclick="ordenarRelatorioMensal(0)">Beneficiario</th>';
+    meses.forEach((m, i) => {
+      html += '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorioMensal(' + (i + 1) + ')">' + m.label + '</th>';
+    });
+    html += '<th style="cursor:pointer;user-select:none;text-align:right" onclick="ordenarRelatorioMensal(13)">Total</th>';
+    html += '</tr></thead><tbody id="relatorioBody">';
+
+    data.dados.forEach(d => {
+      html += '<tr><td>' + (d.nome || '') + '</td>';
+      meses.forEach(m => {
+        html += '<td style="text-align:right">' + formatMoney(d[m.key]) + '</td>';
+      });
+      html += '<td style="text-align:right;font-weight:700">' + formatMoney(d.total) + '</td></tr>';
+    });
+
+    // TOTAL GERAL
+    html += '<tr style="font-weight:700;background:#34495e;color:white;">' +
+      '<td>TOTAL GERAL - ' + ano + '</td>';
+    meses.forEach(m => {
+      html += '<td style="text-align:right">' + formatMoney(t[m.key] || 0) + '</td>';
+    });
+    html += '<td style="text-align:right">' + formatMoney(t.total || 0) + '</td>';
+    html += '</tr></tbody></table>';
+    container.innerHTML = html;
+  } catch (err) {
+    showToast('Erro: ' + err.message, 'error');
+  }
+}
+
+var ordemAscRelMensal = true;
+var colunaOrdenadaRelMensal = -1;
+
+function ordenarRelatorioMensal(col) {
+  var tbody = document.getElementById('relatorioBody');
+  if (!tbody) return;
+  var linhas = Array.from(tbody.querySelectorAll('tr'));
+  var linhaTotal = linhas.pop();
+  if (linhas.length === 0) return;
+  ordemAscRelMensal = (col === colunaOrdenadaRelMensal) ? !ordemAscRelMensal : true;
+  colunaOrdenadaRelMensal = col;
+  linhas.sort(function(a, b) {
+    var va = a.cells[col].textContent.trim();
+    var vb = b.cells[col].textContent.trim();
+    if (col === 0) {
+      return ordemAscRelMensal ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    var na = parseFloat(va.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+    var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+    return ordemAscRelMensal ? na - nb : nb - na;
+  });
+  linhas.forEach(function(l) { tbody.appendChild(l); });
+  tbody.appendChild(linhaTotal);
+}
+
+function exportarRelatorioMensal() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilterMensal');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/mensal/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+
+
+
+
+var ordemAscRelMensal = true;
+var colunaOrdenadaRelMensal = -1;
+
+function ordenarRelatorioMensal(col) {
+  var tbody = document.getElementById('relatorioBody');
+  if (!tbody) return;
+
+  var linhas = Array.from(tbody.querySelectorAll('tr'));
+  var linhaTotal = linhas.pop();
+  if (linhas.length === 0) return;
+
+  ordemAscRelMensal = (col === colunaOrdenadaRelMensal) ? !ordemAscRelMensal : true;
+  colunaOrdenadaRelMensal = col;
+
+  linhas.sort(function(a, b) {
+    var va = a.cells[col].textContent.trim();
+    var vb = b.cells[col].textContent.trim();
+
+    // Coluna 0 (Beneficiario) - texto
+    if (col === 0) {
+      return ordemAscRelMensal ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+
+    // Colunas numericas (1 a 13)
+    var na = parseFloat(va.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+    var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+    return ordemAscRelMensal ? na - nb : nb - na;
+  });
+
+  linhas.forEach(function(l) { tbody.appendChild(l); });
+  tbody.appendChild(linhaTotal);
+}
+
+function exportarRelatorioMensal() {
+  const ano = val('anoRelatorio') || '';
+  const tipoEl = document.getElementById('relTipoFilterMensal');
+  const tipo = tipoEl ? tipoEl.value : 'todos';
+  window.location.href = API + '/bancos/relatorios/mensal/exportar?ano=' + encodeURIComponent(ano) + '&tipo=' + encodeURIComponent(tipo);
+}
+
+
+
 async function loadMotivos() {
   try {
     const res = await fetch(API + '/bancos/motivos-devolucao');
@@ -1825,12 +2232,85 @@ function matchGoogle(token, texto) {
   }
   return true;
 }
+
+var ordemAscExtrato = true;
+var colunaOrdenadaExtrato = -1;
+
+function ordenarExtrato(col) {
+  var tbody = document.getElementById('extratosTableBody');
+  if (!tbody) return;
+  var linhas = Array.from(tbody.querySelectorAll('tr'));
+  if (linhas.length === 0 || (linhas[0] && linhas[0].cells.length < 2)) return;
+
+  ordemAscExtrato = (col === colunaOrdenadaExtrato) ? !ordemAscExtrato : true;
+  colunaOrdenadaExtrato = col;
+
+  linhas.sort(function(a, b) {
+    var va = a.cells[col].textContent.trim();
+    var vb = b.cells[col].textContent.trim();
+
+    // Coluna Data (7) - formato dd/mm/yyyy
+    if (col === 7) {
+      var pA = va.split('/'), pB = vb.split('/');
+      if (pA.length === 3 && pB.length === 3) {
+        var dA = new Date(pA[2], pA[1] - 1, pA[0]);
+        var dB = new Date(pB[2], pB[1] - 1, pB[0]);
+        return ordemAscExtrato ? dA - dB : dB - dA;
+      }
+    }
+
+    // Colunas Valor (6) e Orçamento (13) - formato R$ X.XXX,XX
+    if (col === 6 || col === 13) {
+      var na = parseFloat(va.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+      var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
+      return ordemAscExtrato ? na - nb : nb - na;
+    }
+
+    // Outras colunas - numérico ou texto
+    if (!isNaN(va) && !isNaN(vb) && va !== '' && vb !== '') {
+      return ordemAscExtrato ? parseFloat(va) - parseFloat(vb) : parseFloat(vb) - parseFloat(va);
+    }
+    return ordemAscExtrato ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+
+  // Renumerar coluna Ordem
+  linhas.forEach(function(l, i) {
+    if (l.cells[0]) l.cells[0].textContent = i + 1;
+  });
+
+  linhas.forEach(function(l) { tbody.appendChild(l); });
+}
+
+function toggleBancosSub() {
+  var sub = document.getElementById('bancosSubmenu');
+  if (sub) sub.classList.toggle('open');
+}
+
+
+function toggleBancosSubmenu(header) {
+  var items = document.getElementById('bancosSubmenu');
+  header.classList.toggle('collapsed');
+  items.classList.toggle('collapsed');
+}
+
 function parseDataBR(str) {
   if (!str || str.length < 8) return new Date(1900, 0, 1);
   var partes = str.trim().split('/');
   if (partes.length === 3) return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
   return new Date(1900, 0, 1);
 }
+
+
+function logout() {
+  fetch('/api/logout')
+    .then(function() { window.location.href = '/login'; })
+    .catch(function() { window.location.href = '/login'; });
+}
+
+function sair() { logout(); }
+
+
+
 function sair() {
   if (confirm('Sair?')) window.close();
 }

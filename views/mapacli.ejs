@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa de Clientes</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .mapa-toolbar {
+            display: flex;
+            gap: 8px;
+            padding: 10px 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .mapa-toolbar input[type="text"] {
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 300px;
+            font-size: 14px;
+        }
+        .mapa-btn {
+            padding: 6px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .mapa-btn:hover { opacity: 0.85; }
+        .btn-buscar { background: #4CAF50; color: white; }
+        .btn-exportar { background: #FF9800; color: white; }
+        .btn-colunas { background: #607D8B; color: white; }
+        .btn-imprimir { background: #2196F3; color: white; }
+        .btn-editar { background: #FFC107; color: black; }
+        .btn-excluir { background: #f44336; color: white; }
+        .btn-novo { background: #9C27B0; color: white; }
+
+        .mapa-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .mapa-table th {
+            background: #4a90d9;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .mapa-table th:hover { background: #3a7bc8; }
+        .mapa-table td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .mapa-table tr:nth-child(even) { background: #f7f9fc; }
+        .mapa-table tr:hover { background: #e3f2fd; }
+        .mapa-table tr.selecionado { background: #bbdefb; }
+
+        .col-ord { width: 40px; text-align: center; }
+        .col-cpf { width: 120px; }
+        .col-nome { width: 250px; }
+        .col-cat { width: 60px; text-align: center; }
+        .col-desc-cat { width: 200px; }
+        .col-sub { width: 70px; text-align: center; }
+        .col-desc-sub { width: 220px; }
+
+        .mapa-actions { display: flex; gap: 4px; }
+        .mapa-actions button {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .colunas-modal {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .colunas-modal label { display: block; padding: 4px 0; }
+
+        .edit-modal {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            padding: 24px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            min-width: 450px;
+        }
+        .edit-modal label { display: block; margin: 8px 0 4px; font-weight: bold; }
+        .edit-modal input, .edit-modal select {
+            width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+        }
+        .edit-modal-buttons { display: flex; gap: 8px; margin-top: 16px; }
+
+        .overlay {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3);
+            z-index: 999;
+        }
+        .status-info {
+            padding: 6px 0;
+            color: #666;
+            font-size: 13px;
+        }
+        @media print {
+            .mapa-toolbar, .mapa-actions, .coluna-acoes { display: none !important; }
+            .mapa-table th { background: #333 !important; -webkit-print-color-adjust: exact; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Mapa de Clientes</h2>
+
+        <div class="mapa-toolbar">
+            <input type="text" id="buscaGeral" placeholder="Busca geral..." onkeypress="if(event.key==='Enter') buscarGeral()">
+            <button class="mapa-btn btn-buscar" onclick="buscarGeral()">🔍 Buscar</button>
+            <button class="mapa-btn btn-exportar" onclick="exportarExcel()">📊 Exportar</button>
+            <button class="mapa-btn btn-colunas" onclick="toggleColunas()">📋 Colunas</button>
+            <button class="mapa-btn btn-imprimir" onclick="imprimir()">🖨️ Imprimir</button>
+            <button class="mapa-btn btn-novo" onclick="abrirNovo()">➕ Novo</button>
+        </div>
+
+        <div class="status-info" id="statusInfo">Total: <%= clientes.length %> cliente(s)</div>
+
+        <table class="mapa-table" id="tabelaClientes">
+            <thead>
+                <tr>
+                    <th class="col-ord" onclick="ordenar(0)">Ord</th>
+                    <th class="col-cpf" onclick="ordenar(1)">CPF/CNPJ</th>
+                    <th class="col-nome" onclick="ordenar(2)">Nome do Cliente</th>
+                    <th class="col-cat" onclick="ordenar(3)">Categoria</th>
+                    <th class="col-desc-cat" onclick="ordenar(4)">Descrição Categoria</th>
+                    <th class="col-sub" onclick="ordenar(5)">Subcategoria</th>
+                    <th class="col-desc-sub" onclick="ordenar(6)">Descrição Subcategoria</th>
+                    <th class="coluna-acoes" style="width: 120px;">Ações</th>
+                </tr>
+            </thead>
+            <tbody id="corpoTabela">
+                <% let i = 1; clientes.forEach(function(c) { %>
+                <tr data-cpf="<%= c.cpf %>" onclick="selecionarLinha(this)">
+                    <td class="col-ord"><%= i++ %></td>
+                    <td class="col-cpf"><%= c.cpf || '' %></td>
+                    <td class="col-nome"><%= c.nomecli || '' %></td>
+                    <td class="col-cat"><%= c.categoria || '' %></td>
+                    <td class="col-desc-cat"><%= c.des_categoria || '' %></td>
+                    <td class="col-sub"><%= c.subcategoria || '' %></td>
+                    <td class="col-desc-sub"><%= c.des_subcategoria || '' %></td>
+                    <td class="coluna-acoes">
+                        <div class="mapa-actions">
+                            <button class="btn-editar" onclick="event.stopPropagation(); editar('<%= c.cpf %>')">✏️ Editar</button>
+                            <button class="btn-excluir" onclick="event.stopPropagation(); excluir('<%= c.cpf %>', '<%= c.nomecli %>')">🗑️ Excluir</button>
+                        </div>
+                    </td>
+                </tr>
+                <% }) %>
+                <% if (clientes.length === 0) { %>
+                <tr><td colspan="8" style="text-align:center;padding:20px;">Nenhum cliente encontrado</td></tr>
+                <% } %>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Colunas -->
+    <div class="overlay" id="overlay" onclick="fecharModais()"></div>
+    <div class="colunas-modal" id="modalColunas">
+        <h3>Visibilidade de Colunas</h3>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-ord', this)"> Ord</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-cpf', this)"> CPF/CNPJ</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-nome', this)"> Nome do Cliente</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-cat', this)"> Categoria</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-desc-cat', this)"> Descrição Categoria</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-sub', this)"> Subcategoria</label>
+        <label><input type="checkbox" checked onchange="toggleColuna('col-desc-sub', this)"> Descrição Subcategoria</label>
+        <br><button class="mapa-btn btn-colunas" onclick="fecharModais()">Fechar</button>
+    </div>
+
+    <!-- Modal Editar -->
+    <div class="edit-modal" id="modalEditar">
+        <h3 id="tituloModal">Editar Cliente</h3>
+        <input type="hidden" id="editCpfOriginal">
+        <label>CPF/CNPJ:</label>
+        <input type="text" id="editCpf">
+        <label>Nome do Cliente:</label>
+        <input type="text" id="editNome">
+        <label>Categoria:</label>
+        <select id="editCategoria"></select>
+        <label>Subcategoria:</label>
+        <select id="editSubcategoria"></select>
+        <div class="edit-modal-buttons">
+            <button class="mapa-btn btn-buscar" onclick="salvarEdicao()">✅ Salvar</button>
+            <button class="mapa-btn btn-colunas" onclick="fecharModais()">❌ Cancelar</button>
+        </div>
+    </div>
+
+    <script src="/js/mapacli.js"></script>
+</body>
+</html>

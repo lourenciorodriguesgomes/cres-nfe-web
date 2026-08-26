@@ -1,0 +1,32 @@
+Passo a passo para fazer o deploy
+
+1. Abra o Prompt de Comando (cmd) ou PowerShell no seu computador
+
+2. Navegue até a pasta do seu projeto:
+cd caminho\para\o\seu\projeto
+(Exemplo: cd C:\Users\SeuUsuario\Documents\cres-nfe-web)
+
+3. Verifique se tem alterações pendentes: 
+
+   git status
+   
+   Vão aparecer os arquivos modificados em vermelho.
+
+
+4. Adicione todas as alterações:
+
+   git add .
+
+5. Crie o commit (salva as alterações com uma mensagem):
+  
+   git commit -m "Relatorio mensal, aba Mapa de Clientes e correcoes"
+
+
+6. Envie para o GitHub:
+ 
+  git push
+
+
+7. Acesse o painel do Railway — vai aparecer um novo deploy em andamento. 
+
+Em 1-2 minutos estará pronto.

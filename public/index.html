@@ -14,8 +14,21 @@
         <span class="version">Web 1.0</span>
       </div>
       <nav class="sidebar-nav">
-        <a href="#" class="nav-item active" data-page="bancos"><span class="nav-icon">🏦</span><span class="nav-label">Bancos</span></a>
-        <a href="#" class="nav-item" data-page="estoque"><span class="nav-icon">📦</span><span class="nav-label">Estoque</span></a>
+        <div class="nav-group-header collapsed" onclick="toggleBancosSubmenu(this)">
+          <span class="nav-icon">🏦</span>
+          <span class="nav-label">Bancos</span>
+          <span class="nav-arrow">▼</span>
+        </div>
+        <div class="nav-group-items collapsed" id="bancosSubmenu">
+          <a href="#" class="nav-item" data-page="contacorrente"><span class="nav-icon">💳</span><span class="nav-label">Conta Corrente</span></a>
+          <a href="#" class="nav-item" data-page="extrato"><span class="nav-icon">📄</span><span class="nav-label">Extrato</span></a>
+          <a href="#" class="nav-item" data-page="extratoct"><span class="nav-icon">📋</span><span class="nav-label">Extrato CT</span></a>
+          <a href="#" class="nav-item" data-page="conciliacao"><span class="nav-icon">🔄</span><span class="nav-label">Conciliação</span></a>
+          <a href="#" class="nav-item" data-page="categoria"><span class="nav-icon">📁</span><span class="nav-label">Categoria</span></a>
+          <a href="#" class="nav-item" data-page="mapacli"><span class="nav-icon">🗺️</span><span class="nav-label">Mapa de Clientes</span></a>
+          <a href="#" class="nav-item" data-page="subcategoria"><span class="nav-icon">📂</span><span class="nav-label">Sub Categoria</span></a>
+        </div>
+        <a href="#" class="nav-item" data-page="estoque"><span class="nav-icon">📦</span><span class="nav-label">xEstoque</span></a>
         <a href="#" class="nav-item" data-page="funcionarios"><span class="nav-icon">👥</span><span class="nav-label">Funcionarios</span></a>
         <a href="#" class="nav-item" data-page="cadastros"><span class="nav-icon">📋</span><span class="nav-label">Cadastros</span></a>
         <a href="#" class="nav-item" data-page="movimentos"><span class="nav-icon">🔄</span><span class="nav-label">Movimentos</span></a>
@@ -39,8 +52,8 @@
         <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
         <h1 id="pageTitle">Bancos</h1>
         <div class="topbar-right">
-          <span id="operadorInfo">Operador: 1</span>
-          <button class="btn-sair" onclick="sair()">Sair</button>
+		  <span id="operadorInfo">Carregando...</span>
+   		  <button class="btn-sair" onclick="logout()">Sair</button>
         </div>
       </header>
       <div class="page-content" id="pageContent"></div>

@@ -22,7 +22,8 @@ async function carregarClientes(conn) {
     'SELECT c.cpf, c.nomecli, c.categoria, cat.categoria AS des_categoria, c.subcategoria, pc.desconta AS des_subcategoria ' +
     'FROM clientes c ' +
     'LEFT JOIN categoria cat ON TRIM(cat.codigo) = TRIM(c.categoria) ' +
-    'LEFT JOIN planocontas pc ON TRIM(pc.subcategoria) = TRIM(c.subcategoria)'
+    'LEFT JOIN planocontas pc ON TRIM(pc.subcategoria) = TRIM(c.subcategoria) ' +
+    'WHERE (c.sql_deleted IS NULL OR c.sql_deleted <> \'T\')'
   );
   const aClientes = rows.map(r => ({
     cpf: soDigitos(r.cpf),
@@ -37,7 +38,7 @@ async function carregarClientes(conn) {
     const cpf = aClientes[i].cpf;
     if (cpf.length >= 6) {
       const ult6 = cpf.slice(-6);
-      const existing = aUlt6.find(a => a[0] === ult6);
+      const existing = aUlt6.find(a => a.ult6 === ult6);
       if (!existing) {
         aUlt6.push({ ult6: ult6, cont: 1, idx: i });
       } else {
@@ -94,10 +95,10 @@ router.get('/planocontas', async (req, res) => {
     const categoria = req.query.categoria || '';
     let query, params;
     if (categoria) {
-      query = "SELECT subcategoria, desconta, tipconta, gruconta FROM planocontas WHERE sql_deleted <> 'T' AND substr(subcategoria, 1, 2) = ? ORDER BY subcategoria";
+      query = "SELECT subcategoria, desconta, tipconta, gruconta FROM planocontas WHERE (sql_deleted IS NULL OR sql_deleted <> 'T') AND substr(subcategoria, 1, 2) = ? ORDER BY subcategoria";
       params = [categoria];
     } else {
-      query = "SELECT subcategoria, desconta, tipconta, gruconta FROM planocontas WHERE sql_deleted <> 'T' ORDER BY subcategoria";
+      query = "SELECT subcategoria, desconta, tipconta, gruconta FROM planocontas WHERE (sql_deleted IS NULL OR sql_deleted <> 'T') ORDER BY subcategoria";
       params = [];
     }
     const [rows] = await pool.query(query, params);
@@ -125,7 +126,6 @@ router.get('/referencia', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.post('/referencia', async (req, res) => {
   const { codigo, nomebanco, rasaosocia } = req.body;
   try {
@@ -133,7 +133,6 @@ router.post('/referencia', async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.put('/referencia/:codigo', async (req, res) => {
   const { nomebanco, rasaosocia } = req.body;
   try {
@@ -141,7 +140,6 @@ router.put('/referencia/:codigo', async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.delete('/referencia/:codigo', async (req, res) => {
   try {
     await pool.query('DELETE FROM bancos WHERE codigo = ?', [req.params.codigo]);
@@ -160,7 +158,6 @@ router.get('/contas', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.post('/contas', async (req, res) => {
   const { banco, agencia, contacorre, titular, clientid, clientsecret, certificadopem, certificadokey } = req.body;
   try {
@@ -171,7 +168,6 @@ router.post('/contas', async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.put('/contas/:banco/:agencia/:conta', async (req, res) => {
   const { titular, clientid, clientsecret, certificadopem, certificadokey } = req.body;
   try {
@@ -182,7 +178,6 @@ router.put('/contas/:banco/:agencia/:conta', async (req, res) => {
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.delete('/contas/:banco/:agencia/:conta', async (req, res) => {
   try {
     await pool.query('DELETE FROM contabco WHERE banco = ? AND agencia = ? AND contacorre = ?', [req.params.banco, req.params.agencia, req.params.conta]);
@@ -353,53 +348,462 @@ router.post('/conciliacao/desfazer', async (req, res) => {
 });
 
 // ============================================================
-// ROTAS: /api/bancos/relatorios
+// ROTA: /api/bancos/categorias
 // ============================================================
-router.get('/relatorios/trimestral', async (req, res) => {
-  const ano = req.query.ano || new Date().getFullYear();
+router.get('/categorias', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT cat.codigo AS categoria_cod, cat.categoria AS categoria_desc, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) IN (1,2,3) THEN e.valor ELSE 0 END), 0) AS tri1, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) IN (4,5,6) THEN e.valor ELSE 0 END), 0) AS tri2, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) IN (7,8,9) THEN e.valor ELSE 0 END), 0) AS tri3, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) IN (10,11,12) THEN e.valor ELSE 0 END), 0) AS tri4, ' +
-      'COALESCE(SUM(e.valor), 0) AS total ' +
-      'FROM categoria cat LEFT JOIN extrato e ON e.categoria = cat.codigo AND YEAR(e.data) = ? ' +
-      'GROUP BY cat.codigo, cat.categoria ORDER BY cat.categoria',
-      [ano]
-    );
-    res.json({ ano: parseInt(ano), dados: rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const [rows] = await pool.query('SELECT codigo, categoria FROM categoria ORDER BY codigo');
+    res.json(rows);
+  } catch (err) {
+    console.error('Erro ao buscar categorias:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.get('/relatorios/mensal', async (req, res) => {
-  const ano = req.query.ano || new Date().getFullYear();
+// ============================================================
+// RELATÓRIO TRIMESTRAL
+// ============================================================
+router.get('/relatorios/trimestral', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT e.cpfcnpj, c.nomecli AS beneficiario, e.centrocusto, cat.categoria, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 1 THEN e.valor ELSE 0 END), 0) AS jan, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 2 THEN e.valor ELSE 0 END), 0) AS fev, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 3 THEN e.valor ELSE 0 END), 0) AS mar, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 4 THEN e.valor ELSE 0 END), 0) AS abr, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 5 THEN e.valor ELSE 0 END), 0) AS mai, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 6 THEN e.valor ELSE 0 END), 0) AS jun, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 7 THEN e.valor ELSE 0 END), 0) AS jul, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 8 THEN e.valor ELSE 0 END), 0) AS ago, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 9 THEN e.valor ELSE 0 END), 0) AS mes_set, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 10 THEN e.valor ELSE 0 END), 0) AS mes_out, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 11 THEN e.valor ELSE 0 END), 0) AS nov, ' +
-      'COALESCE(SUM(CASE WHEN MONTH(e.data) = 12 THEN e.valor ELSE 0 END), 0) AS dez, ' +
-      'COALESCE(SUM(e.valor), 0) AS total ' +
-      'FROM extrato e LEFT JOIN clientes c ON e.cpfcnpj = c.cpf ' +
-      'LEFT JOIN categoria cat ON e.categoria = cat.codigo ' +
-      'WHERE YEAR(e.data) = ? ' +
-      'GROUP BY e.cpfcnpj, c.nomecli, e.centrocusto, cat.categoria ORDER BY c.nomecli',
-      [ano]
+    const ano = req.query.ano || new Date().getFullYear();
+    const tipo = req.query.tipo || 'todos';
+
+    // 1. Carregar clientes (cpf + cencusto)
+    const [cliRows] = await pool.query(
+      "SELECT cpf, cencusto FROM clientes WHERE (sql_deleted IS NULL OR sql_deleted <> 'T')"
     );
-    res.json({ ano: parseInt(ano), dados: rows });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const aClientes = cliRows.map(r => ({
+      cpf: (r.cpf || '').replace(/\D/g, ''),
+      cencusto: (r.cencusto || '').trim()
+    }));
+
+    // 2. Carregar genero (cencusto -> categoria)
+    const [genRows] = await pool.query('SELECT codigo, categoria FROM genero');
+    const aGeneros = genRows.map(r => ({
+      codigo: (r.codigo || '').trim(),
+      categoria: (r.categoria || '').trim()
+    }));
+
+    // 3. Carregar categorias (codigo -> descricao) com TRIM
+    const [catRows] = await pool.query('SELECT codigo, categoria FROM categoria');
+    const aCategorias = catRows.map(r => ({
+      codigo: (r.codigo || '').trim(),
+      desc: (r.categoria || '').trim()
+    }));
+
+    // 4. Carregar extrato do ano
+    let sqlExt = "SELECT data, valor, cpfcnpj, tipo, categoria FROM extrato WHERE YEAR(data) = ?";
+    let params = [ano];
+    if (tipo && tipo !== 'todos') {
+      sqlExt += ' AND tipo = ?';
+      params.push(tipo);
+    }
+    const [extRows] = await pool.query(sqlExt, params);
+
+    // 5. Processar - mesma logica do FiveWin
+    const aResumo = {};
+    const totais = { tri1: 0, tri2: 0, tri3: 0, tri4: 0, total: 0 };
+
+    extRows.forEach(ext => {
+      const dataExt = ext.data;
+      if (!dataExt) return;
+
+      const cCpfExtNum = (ext.cpfcnpj || '').replace(/\D/g, '');
+
+      // Encontra cliente
+      let cCencusto = '';
+      for (let i = 0; i < aClientes.length; i++) {
+        if (aClientes[i].cpf === cCpfExtNum && cCpfExtNum !== '') {
+          cCencusto = aClientes[i].cencusto;
+          break;
+        }
+      }
+
+      // Categoria: extrato tem prioridade, senao busca via genero
+      let cCategoriaCod = (ext.categoria || '').trim();
+      if (!cCategoriaCod) {
+        for (let i = 0; i < aGeneros.length; i++) {
+          if (aGeneros[i].codigo === cCencusto) {
+            cCategoriaCod = aGeneros[i].categoria;
+            break;
+          }
+        }
+      }
+
+      if (!cCategoriaCod) return;
+
+      // Busca descricao da categoria
+      let cCategoriaDesc = cCategoriaCod;
+      for (let i = 0; i < aCategorias.length; i++) {
+        if (aCategorias[i].codigo === cCategoriaCod) {
+          cCategoriaDesc = aCategorias[i].desc;
+          break;
+        }
+      }
+
+      // Trimestre
+      const nMes = new Date(dataExt).getMonth() + 1;
+      let nTri;
+      if (nMes <= 3) nTri = 1;
+      else if (nMes <= 6) nTri = 2;
+      else if (nMes <= 9) nTri = 3;
+      else nTri = 4;
+
+      // Valor: D = negativo
+      let nValor = parseFloat(ext.valor) || 0;
+      if ((ext.tipo || '').trim() === 'D') nValor = -nValor;
+
+      // Acumula no resumo
+      if (!aResumo[cCategoriaCod]) {
+        aResumo[cCategoriaCod] = {
+          cod: cCategoriaCod,
+          desc: cCategoriaDesc,
+          tri1: 0, tri2: 0, tri3: 0, tri4: 0, total: 0
+        };
+      }
+      aResumo[cCategoriaCod]['tri' + nTri] += nValor;
+      aResumo[cCategoriaCod].total += nValor;
+
+      totais['tri' + nTri] += nValor;
+      totais.total += nValor;
+    });
+
+    // Ordena por codigo da categoria
+    const dados = Object.values(aResumo).sort((a, b) => a.cod.localeCompare(b.cod));
+    res.json({ dados, totais });
+  } catch (err) {
+    console.error('Erro no relatorio trimestral:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// ============================================================
+// EXPORTAR RELATORIO TRIMESTRAL (CSV)
+// ============================================================
+router.get('/relatorios/trimestral/exportar', async (req, res) => {
+  try {
+    const ano = req.query.ano || new Date().getFullYear();
+    const tipo = req.query.tipo || 'todos';
+
+    const [cliRows] = await pool.query("SELECT cpf, cencusto FROM clientes WHERE (sql_deleted IS NULL OR sql_deleted <> 'T')");
+    const aClientes = cliRows.map(r => ({ cpf: (r.cpf || '').replace(/\D/g, ''), cencusto: (r.cencusto || '').trim() }));
+    const [genRows] = await pool.query('SELECT codigo, categoria FROM genero');
+    const aGeneros = genRows.map(r => ({ codigo: (r.codigo || '').trim(), categoria: (r.categoria || '').trim() }));
+    const [catRows] = await pool.query('SELECT codigo, categoria FROM categoria');
+    const aCategorias = catRows.map(r => ({ codigo: (r.codigo || '').trim(), desc: (r.categoria || '').trim() }));
+
+    let sqlExt = "SELECT data, valor, cpfcnpj, tipo, categoria FROM extrato WHERE YEAR(data) = ?";
+    let params = [ano];
+    if (tipo && tipo !== 'todos') { sqlExt += ' AND tipo = ?'; params.push(tipo); }
+    const [extRows] = await pool.query(sqlExt, params);
+
+    const aResumo = {};
+    const totais = { tri1: 0, tri2: 0, tri3: 0, tri4: 0, total: 0 };
+
+    extRows.forEach(ext => {
+      const cCpfExtNum = (ext.cpfcnpj || '').replace(/\D/g, '');
+      let cCencusto = '';
+      for (let i = 0; i < aClientes.length; i++) {
+        if (aClientes[i].cpf === cCpfExtNum && cCpfExtNum !== '') { cCencusto = aClientes[i].cencusto; break; }
+      }
+      let cCategoriaCod = (ext.categoria || '').trim();
+      if (!cCategoriaCod) {
+        for (let i = 0; i < aGeneros.length; i++) {
+          if (aGeneros[i].codigo === cCencusto) { cCategoriaCod = aGeneros[i].categoria; break; }
+        }
+      }
+      if (!cCategoriaCod) return;
+      let cCategoriaDesc = cCategoriaCod;
+      for (let i = 0; i < aCategorias.length; i++) {
+        if (aCategorias[i].codigo === cCategoriaCod) { cCategoriaDesc = aCategorias[i].desc; break; }
+      }
+      const nMes = new Date(ext.data).getMonth() + 1;
+      let nTri = nMes <= 3 ? 1 : nMes <= 6 ? 2 : nMes <= 9 ? 3 : 4;
+      let nValor = parseFloat(ext.valor) || 0;
+      if ((ext.tipo || '').trim() === 'D') nValor = -nValor;
+      if (!aResumo[cCategoriaCod]) aResumo[cCategoriaCod] = { cod: cCategoriaCod, desc: cCategoriaDesc, tri1: 0, tri2: 0, tri3: 0, tri4: 0, total: 0 };
+      aResumo[cCategoriaCod]['tri' + nTri] += nValor;
+      aResumo[cCategoriaCod].total += nValor;
+      totais['tri' + nTri] += nValor;
+      totais.total += nValor;
+    });
+
+    const dados = Object.values(aResumo).sort((a, b) => a.cod.localeCompare(b.cod));
+
+    const headers = ['Ord', 'Categoria', '1 Tri', '2 Tri', '3 Tri', '4 Tri', 'Total'];
+    let csv = headers.join(';') + '\n';
+
+    dados.forEach((row) => {
+      csv += [
+        row.cod,
+        '"' + row.desc + '"',
+        row.tri1.toFixed(2).replace('.', ','),
+        row.tri2.toFixed(2).replace('.', ','),
+        row.tri3.toFixed(2).replace('.', ','),
+        row.tri4.toFixed(2).replace('.', ','),
+        row.total.toFixed(2).replace('.', ',')
+      ].join(';') + '\n';
+    });
+
+    csv += [
+      '""',
+      '"TOTAL GERAL - ' + ano + '"',
+      totais.tri1.toFixed(2).replace('.', ','),
+      totais.tri2.toFixed(2).replace('.', ','),
+      totais.tri3.toFixed(2).replace('.', ','),
+      totais.tri4.toFixed(2).replace('.', ','),
+      totais.total.toFixed(2).replace('.', ',')
+    ].join(';') + '\n';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="relatorio_trimestral_' + ano + '.csv"');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error('Erro ao exportar relatorio:', err);
+    res.status(500).send('Erro ao exportar');
+  }
+});
+
+
+// ============================================================
+// RELATÓRIO MENSAL
+// ============================================================
+router.get('/relatorios/mensal', async (req, res) => {
+  try {
+    const ano = req.query.ano || new Date().getFullYear();
+    const tipo = req.query.tipo || 'todos';
+
+    // 1. Carregar clientes (cpf + nome) e montar index de ultimos 6
+    const [cliRows] = await pool.query(
+      "SELECT cpf, nomecli FROM clientes WHERE (sql_deleted IS NULL OR sql_deleted <> 'T')"
+    );
+    const aClientes = cliRows.map(r => ({
+      cpf: (r.cpf || '').replace(/\D/g, ''),
+      nome: (r.nomecli || '').trim()
+    }));
+    // Index de ultimos 6 digitos
+    const aUlt6 = [];
+    for (let i = 0; i < aClientes.length; i++) {
+      const cpf = aClientes[i].cpf;
+      if (cpf.length >= 6) {
+        const ult6 = cpf.slice(-6);
+        const existing = aUlt6.find(a => a.ult6 === ult6);
+        if (!existing) {
+          aUlt6.push({ ult6: ult6, cont: 1, idx: i });
+        } else {
+          existing.cont++;
+          existing.idx = -1;
+        }
+      }
+    }
+
+    // 2. Carregar extrato do ano
+    let sqlExt = "SELECT data, valor, cpfcnpj, tipo FROM extrato WHERE YEAR(data) = ?";
+    let params = [ano];
+    if (tipo && tipo !== 'todos') {
+      sqlExt += ' AND tipo = ?';
+      params.push(tipo);
+    }
+    const [extRows] = await pool.query(sqlExt, params);
+
+    // 3. Processar com 4 estrategias de busca
+    const aResumo = {};
+    const totais = { jan:0, fev:0, mar:0, abr:0, mai:0, jun:0, jul:0, ago:0, set:0, out:0, nov:0, dez:0, total:0 };
+    const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+    extRows.forEach(ext => {
+      const dataExt = ext.data;
+      if (!dataExt) return;
+
+      const cCpfExtNum = (ext.cpfcnpj || '').replace(/\D/g, '');
+
+      // --- 4 ESTRATEGIAS DE BUSCA ---
+      let cli = null;
+      // 1 - EXATO
+      for (let i = 0; i < aClientes.length; i++) {
+        if (cCpfExtNum === aClientes[i].cpf) { cli = aClientes[i]; break; }
+      }
+      // 2 - CONTEM
+      if (!cli && cCpfExtNum.length >= 6) {
+        for (let i = 0; i < aClientes.length; i++) {
+          const cpfCli = aClientes[i].cpf;
+          if (cpfCli.length >= 6) {
+            if (cpfCli.includes(cCpfExtNum) || cCpfExtNum.includes(cpfCli)) { cli = aClientes[i]; break; }
+          }
+        }
+      }
+      // 3 - ULTIMOS 6 DIGITOS (unico)
+      if (!cli && cCpfExtNum.length >= 6) {
+        const ult6 = cCpfExtNum.slice(-6);
+        const entry = aUlt6.find(a => a.ult6 === ult6);
+        if (entry && entry.cont === 1) { cli = aClientes[entry.idx]; }
+      }
+      // 4 - MIOLO (digitos 4 a 9)
+      if (!cli && cCpfExtNum.length >= 6) {
+        for (let i = 0; i < aClientes.length; i++) {
+          const cpfCli = aClientes[i].cpf;
+          if (cpfCli.length >= 9) {
+            const miolo = cpfCli.slice(3, 9);
+            if (cCpfExtNum.includes(miolo) || miolo.includes(cCpfExtNum)) { cli = aClientes[i]; break; }
+          }
+        }
+      }
+
+      let cNome = '';
+      if (cli) {
+        cNome = cli.nome;
+      } else {
+        cNome = cCpfExtNum || 'Sem CPF';
+      }
+
+      const nMes = new Date(dataExt).getMonth();
+      const cMes = meses[nMes];
+
+      // Valor: D = negativo
+      let nValor = parseFloat(ext.valor) || 0;
+      if ((ext.tipo || '').trim() === 'D') nValor = -nValor;
+
+      // Acumula
+      if (!aResumo[cCpfExtNum]) {
+        aResumo[cCpfExtNum] = { cpf: cCpfExtNum, nome: cNome,
+          jan:0, fev:0, mar:0, abr:0, mai:0, jun:0, jul:0, ago:0, set:0, out:0, nov:0, dez:0, total:0 };
+      }
+      aResumo[cCpfExtNum][cMes] += nValor;
+      aResumo[cCpfExtNum].total += nValor;
+
+      totais[cMes] += nValor;
+      totais.total += nValor;
+    });
+
+    const dados = Object.values(aResumo).sort((a, b) => a.nome.localeCompare(b.nome));
+    res.json({ dados, totais });
+  } catch (err) {
+    console.error('Erro no relatorio mensal:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// EXPORTAR RELATORIO MENSAL (CSV)
+// ============================================================
+router.get('/relatorios/mensal/exportar', async (req, res) => {
+  try {
+    const ano = req.query.ano || new Date().getFullYear();
+    const tipo = req.query.tipo || 'todos';
+
+    const [cliRows] = await pool.query("SELECT cpf, nomecli FROM clientes WHERE (sql_deleted IS NULL OR sql_deleted <> 'T')");
+    const aClientes = cliRows.map(r => ({ cpf: (r.cpf || '').replace(/\D/g, ''), nome: (r.nomecli || '').trim() }));
+    const aUlt6 = [];
+    for (let i = 0; i < aClientes.length; i++) {
+      const cpf = aClientes[i].cpf;
+      if (cpf.length >= 6) {
+        const ult6 = cpf.slice(-6);
+        const existing = aUlt6.find(a => a.ult6 === ult6);
+        if (!existing) { aUlt6.push({ ult6: ult6, cont: 1, idx: i }); }
+        else { existing.cont++; existing.idx = -1; }
+      }
+    }
+
+    let sqlExt = "SELECT data, valor, cpfcnpj, tipo FROM extrato WHERE YEAR(data) = ?";
+    let params = [ano];
+    if (tipo && tipo !== 'todos') { sqlExt += ' AND tipo = ?'; params.push(tipo); }
+    const [extRows] = await pool.query(sqlExt, params);
+
+    const aResumo = {};
+    const totais = { jan:0, fev:0, mar:0, abr:0, mai:0, jun:0, jul:0, ago:0, set:0, out:0, nov:0, dez:0, total:0 };
+    const meses = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+    extRows.forEach(ext => {
+      const cCpfExtNum = (ext.cpfcnpj || '').replace(/\D/g, '');
+      let cli = null;
+      for (let i = 0; i < aClientes.length; i++) { if (cCpfExtNum === aClientes[i].cpf) { cli = aClientes[i]; break; } }
+      if (!cli && cCpfExtNum.length >= 6) {
+        for (let i = 0; i < aClientes.length; i++) {
+          const cpfCli = aClientes[i].cpf;
+          if (cpfCli.length >= 6) { if (cpfCli.includes(cCpfExtNum) || cCpfExtNum.includes(cpfCli)) { cli = aClientes[i]; break; } }
+        }
+      }
+      if (!cli && cCpfExtNum.length >= 6) {
+        const ult6 = cCpfExtNum.slice(-6);
+        const entry = aUlt6.find(a => a.ult6 === ult6);
+        if (entry && entry.cont === 1) { cli = aClientes[entry.idx]; }
+      }
+      if (!cli && cCpfExtNum.length >= 6) {
+        for (let i = 0; i < aClientes.length; i++) {
+          const cpfCli = aClientes[i].cpf;
+          if (cpfCli.length >= 9) {
+            const miolo = cpfCli.slice(3, 9);
+            if (cCpfExtNum.includes(miolo) || miolo.includes(cCpfExtNum)) { cli = aClientes[i]; break; }
+          }
+        }
+      }
+      let cNome = cli ? cli.nome : (cCpfExtNum || 'Sem CPF');
+      const nMes = new Date(ext.data).getMonth();
+      const cMes = meses[nMes];
+      let nValor = parseFloat(ext.valor) || 0;
+      if ((ext.tipo || '').trim() === 'D') nValor = -nValor;
+      if (!aResumo[cCpfExtNum]) aResumo[cCpfExtNum] = { cpf: cCpfExtNum, nome: cNome, jan:0, fev:0, mar:0, abr:0, mai:0, jun:0, jul:0, ago:0, set:0, out:0, nov:0, dez:0, total:0 };
+      aResumo[cCpfExtNum][cMes] += nValor;
+      aResumo[cCpfExtNum].total += nValor;
+      totais[cMes] += nValor;
+      totais.total += nValor;
+    });
+
+    const dados = Object.values(aResumo).sort((a, b) => a.nome.localeCompare(b.nome));
+
+    const headers = ['Beneficiario', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez', 'Total'];
+    let csv = headers.join(';') + '\n';
+
+    dados.forEach(row => {
+      csv += [
+        '"' + row.nome + '"',
+        row.jan.toFixed(2).replace('.', ','),
+        row.fev.toFixed(2).replace('.', ','),
+        row.mar.toFixed(2).replace('.', ','),
+        row.abr.toFixed(2).replace('.', ','),
+        row.mai.toFixed(2).replace('.', ','),
+        row.jun.toFixed(2).replace('.', ','),
+        row.jul.toFixed(2).replace('.', ','),
+        row.ago.toFixed(2).replace('.', ','),
+        row.set.toFixed(2).replace('.', ','),
+        row.out.toFixed(2).replace('.', ','),
+        row.nov.toFixed(2).replace('.', ','),
+        row.dez.toFixed(2).replace('.', ','),
+        row.total.toFixed(2).replace('.', ',')
+      ].join(';') + '\n';
+    });
+
+    csv += [
+      '"TOTAL GERAL - ' + ano + '"',
+      totais.jan.toFixed(2).replace('.', ','),
+      totais.fev.toFixed(2).replace('.', ','),
+      totais.mar.toFixed(2).replace('.', ','),
+      totais.abr.toFixed(2).replace('.', ','),
+      totais.mai.toFixed(2).replace('.', ','),
+      totais.jun.toFixed(2).replace('.', ','),
+      totais.jul.toFixed(2).replace('.', ','),
+      totais.ago.toFixed(2).replace('.', ','),
+      totais.set.toFixed(2).replace('.', ','),
+      totais.out.toFixed(2).replace('.', ','),
+      totais.nov.toFixed(2).replace('.', ','),
+      totais.dez.toFixed(2).replace('.', ','),
+      totais.total.toFixed(2).replace('.', ',')
+    ].join(';') + '\n';
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="relatorio_mensal_' + ano + '.csv"');
+    res.send('\uFEFF' + csv);
+  } catch (err) {
+    console.error('Erro ao exportar mensal:', err);
+    res.status(500).send('Erro ao exportar');
+  }
+});
+
+
+
+
+
+
 
 // ============================================================
 // ROTAS: /api/bancos/motivos-devolucao
@@ -410,7 +814,6 @@ router.get('/motivos-devolucao', async (req, res) => {
     res.json(rows);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
-
 router.post('/motivos-devolucao', async (req, res) => {
   const { motivo, classifica, descricao } = req.body;
   try {
