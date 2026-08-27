@@ -14,13 +14,9 @@ fetch('/api/verificar')
     window.location.href = '/login';
   });
 
-
-
-
 const pageTitles = {
-bancos: 'Bancos', mapacli: 'Mapa de Clientes', contacorrente: 'Conta Corrente', extrato: 'Extrato', conciliacao: 'Conciliação', extratoct: 'Extrato CT', categoria: 'Categoria', subcategoria: 'Sub Categoria', estoque: 'Estoque',
+bancos: 'Bancos', mapacli: 'xxxxxxxxxxMapa de Clientes', contacorrente: 'Conta Corrente', extrato: 'Extrato', conciliacao: 'Conciliação', extratoct: 'Extrato CT', categoria: 'Categoria', subcategoria: 'Sub Categoria', estoque: 'Estoque',
 };
-
 
 
 document.querySelectorAll('.nav-item').forEach(item => {
