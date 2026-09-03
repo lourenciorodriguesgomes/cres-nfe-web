@@ -28,7 +28,6 @@ router.get('/', async (req, res) => {
                 '<td class="col-desc">' + (r.desconta || '') + '</td>' +
                 '<td class="col-grupo">' + tipcon + '</td>' +
                 '<td class="col-tipo">' + grucon + '</td>' +
-                '<td class="col-sub">' + (r.subcategoria || '') + '</td>' +
                 '<td class="col-acoes">' +
                     '<button class="mapa-btn btn-editar" onclick="event.stopPropagation(); editar(\'' + codconta + '\')">✏️</button>' +
                     '<button class="mapa-btn btn-excluir" onclick="event.stopPropagation(); excluir(\'' + codconta + '\', \'' + desconta + '\')">🗑️</button>' +
@@ -36,11 +35,11 @@ router.get('/', async (req, res) => {
             '</tr>';
         });
         if (rows.length === 0) {
-            linhas = '<tr><td colspan="7" style="text-align:center;padding:20px;">Nenhum registro encontrado</td></tr>';
+            linhas = '<tr><td colspan="6" style="text-align:center;padding:20px;">Nenhum registro encontrado</td></tr>';
         }
         const html = '<div class="mapa-container">' +
           '<div class="mapa-toolbar">' +
-            '<button class="mapa-btn btn-buscar" onclick="scAbrirBuscaGeral()">🔎 Busca Geral</button>' +
+            '<button class="mapa-btn btn-buscar" onclick="pcAbrirBuscaGeral()">🔎 Busca Geral</button>' +
             '<button class="mapa-btn btn-novo" onclick="abrirNovo()">➕ Novo</button>' +
             '<button class="mapa-btn btn-exportar" onclick="exportarExcel()">📊 Excel</button>' +
             '<button class="mapa-btn btn-imprimir" onclick="imprimir()">🖨️ Imprimir</button>' +
@@ -54,7 +53,6 @@ router.get('/', async (req, res) => {
             '<th class="col-desc" onclick="ordenar(2)">Descrição do Plano</th>' +
             '<th class="col-grupo" onclick="ordenar(3)">Grupo</th>' +
             '<th class="col-tipo" onclick="ordenar(4)">Tipo</th>' +
-            '<th class="col-sub" onclick="ordenar(5)">Sub Cat</th>' +
             '<th class="col-acoes" style="width:120px;">Ações</th>' +
           '</tr></thead><tbody id="corpoTabela">' + linhas + '</tbody></table>' +
         '</div>' +
@@ -66,11 +64,10 @@ router.get('/', async (req, res) => {
           '<label><input type="checkbox" checked onchange="toggleColuna(\'col-desc\', this)"> Descrição</label>' +
           '<label><input type="checkbox" checked onchange="toggleColuna(\'col-grupo\', this)"> Grupo</label>' +
           '<label><input type="checkbox" checked onchange="toggleColuna(\'col-tipo\', this)"> Tipo</label>' +
-          '<label><input type="checkbox" checked onchange="toggleColuna(\'col-sub\', this)"> Sub Cat</label>' +
           '<br><button class="mapa-btn btn-colunas" onclick="fecharModais()">Fechar</button>' +
         '</div>' +
         '<div class="mapa-modal-editar" id="modalEditar">' +
-          '<h3 id="tituloModal">Editar Subcategoria</h3>' +
+          '<h3 id="tituloModal">Editar Plano de Contas</h3>' +
           '<input type="hidden" id="editCodOriginal">' +
           '<label>Código:</label>' +
           '<input type="text" id="editCod">' +
@@ -96,32 +93,32 @@ router.get('/', async (req, res) => {
             '<button class="mapa-btn btn-colunas" onclick="fecharModais()">❌ Cancelar</button>' +
           '</div>' +
         '</div>' +
-        '<div id="scModalBuscaGeral" style="display:none;position:fixed;top:60px;right:40px;z-index:10001;background:#1e1e2e;border:1px solid #555;border-radius:8px;width:480px;box-shadow:0 8px 30px rgba(0,0,0,0.6);">' +
-          '<div id="scBuscaGeralHeader" style="background:#2a2a3e;color:#fff;padding:10px 16px;cursor:move;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;user-select:none;">' +
+        '<div id="pcModalBuscaGeral" style="display:none;position:fixed;top:60px;right:40px;z-index:10001;background:#1e1e2e;border:1px solid #555;border-radius:8px;width:480px;box-shadow:0 8px 30px rgba(0,0,0,0.6);">' +
+          '<div id="pcBuscaGeralHeader" style="background:#2a2a3e;color:#fff;padding:10px 16px;cursor:move;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:center;user-select:none;">' +
             '<b>🔎 Busca Geral</b>' +
-            '<button onclick="scFecharBuscaGeral()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:18px;">✕</button>' +
+            '<button onclick="pcFecharBuscaGeral()" style="background:none;border:none;color:#fff;cursor:pointer;font-size:18px;">✕</button>' +
           '</div>' +
           '<div style="padding:16px;">' +
-            '<input type="text" id="scBuscaGeralInput" placeholder="Ex: RECEITA;DESPESA ou codigo:1.1;DESPESA;-SALARIO" style="width:100%;padding:8px;font-size:14px;border:1px solid #555;border-radius:4px;background:#2a2a3e;color:#fff;box-sizing:border-box;">' +
+            '<input type="text" id="pcBuscaGeralInput" placeholder="Ex: RECEITA;DESPESA ou codigo:1.1;DESPESA;-SALARIO" style="width:100%;padding:8px;font-size:14px;border:1px solid #555;border-radius:4px;background:#2a2a3e;color:#fff;box-sizing:border-box;">' +
             '<div style="margin-top:8px;padding:10px;background:#1a1d29;border-radius:6px;font-size:12px;color:#a0c4e8;">' +
               '<b>Como usar:</b><br>' +
               '- Use ; para multiplas palavras<br>' +
               '- Excluir: -DESPESA<br>' +
-              '- Por campo: codigo:1.1 desc:RECEITA grupo:Conta tipo:Receita sub:1.2<br>' +
-              '- Campos: codigo, desc, grupo, tipo, sub<br>' +
+              '- Por campo: codigo:1.1 desc:RECEITA grupo:Conta tipo:Receita<br>' +
+              '- Campos: codigo, desc, grupo, tipo<br>' +
               '- Combina: RECEITA;codigo:1.1;-DESPESA' +
             '</div>' +
-            
+          
             '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">' +
-            '<button onclick="scLimparBusca()" style="background:#444;color:#fff;border:1px solid #888;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;">Limpar Filtro</button>' +
-            '<button onclick="scExecutarBuscaGeral()" style="background:#4a6fa5;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;">Buscar</button>' +
+            '<button onclick="pcLimparBusca()" style="background:#444;color:#fff;border:1px solid #888;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;">Limpar Filtro</button>' +
+            '<button onclick="pcExecutarBuscaGeral()" style="background:#4a6fa5;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:14px;">Buscar</button>' +
             '</div>' +
-
+            
           '</div>' +
         '</div>';
         res.send(html);
     } catch (err) {
-        console.error('Erro ao buscar subcategoria:', err);
+        console.error('Erro ao buscar plano de contas:', err);
         res.status(500).send('Erro ao carregar página');
     }
 });
@@ -208,7 +205,7 @@ router.get('/exportar', async (req, res) => {
             ORDER BY subcategoria
         `;
         const [rows] = await pool.query(query);
-        const headers = ['Ord', 'Código', 'Descrição do Plano', 'Grupo', 'Tipo', 'Sub Cat'];
+        const headers = ['Ord', 'Código', 'Descrição do Plano', 'Grupo', 'Tipo'];
         let csv = headers.join(';') + '\n';
         rows.forEach((row, i) => {
             var tipcon = row.tipconta || '';
@@ -218,11 +215,11 @@ router.get('/exportar', async (req, res) => {
             var grucon = row.gruconta || '';
             if (grucon === 'R') grucon = 'Receita';
             else if (grucon === 'D') grucon = 'Débito';
-            csv += [i + 1, row.codconta || '', row.desconta || '', tipcon, grucon, row.subcategoria || '']
+            csv += [i + 1, row.codconta || '', row.desconta || '', tipcon, grucon]
                 .map(v => '"' + String(v).replace(/"/g, '""') + '"').join(';') + '\n';
         });
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="subcategoria.csv"');
+        res.setHeader('Content-Disposition', 'attachment; filename="plano_contas.csv"');
         res.send('\uFEFF' + csv);
     } catch (err) {
         console.error('Erro ao exportar:', err);

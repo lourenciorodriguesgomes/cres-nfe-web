@@ -1,6 +1,6 @@
-var scOrdemAsc = true;
-var scColunaOrdenada = -1;
-var scFiltroAtivo = null;
+var tpoOrdemAsc = true;
+var tpoColunaOrdenada = -1;
+var tpoFiltroAtivo = null;
 
 function voltarBancos() {
   loadPage('bancos');
@@ -14,8 +14,8 @@ function filtrarTabela() {
     if (l.cells.length < 2) { l.style.display = 'none'; return; }
     var mostrar = true;
 
-    if (mostrar && scFiltroAtivo) {
-      mostrar = scExecutarFiltroAvancado(l);
+    if (mostrar && tpoFiltroAtivo) {
+      mostrar = tpoExecutarFiltroAvancado(l);
     }
 
     l.style.display = mostrar ? '' : 'none';
@@ -38,8 +38,8 @@ function ordenar(col) {
   if (linhas.length === 0) return;
   if (linhas[0].cells.length < 2) return;
 
-  scOrdemAsc = (col === scColunaOrdenada) ? !scOrdemAsc : true;
-  scColunaOrdenada = col;
+  tpoOrdemAsc = (col === tpoColunaOrdenada) ? !tpoOrdemAsc : true;
+  tpoColunaOrdenada = col;
 
   linhas.sort(function(a, b) {
     var va = a.cells[col].textContent.trim();
@@ -48,10 +48,10 @@ function ordenar(col) {
     var na = parseFloat(va.replace(/\./g, '').replace(',', '.'));
     var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.'));
     if (!isNaN(na) && !isNaN(nb) && va !== '' && vb !== '') {
-      return scOrdemAsc ? na - nb : nb - na;
+      return tpoOrdemAsc ? na - nb : nb - na;
     }
 
-    return scOrdemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return tpoOrdemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
   linhas.forEach(function(l) { tbody.appendChild(l); });
@@ -105,7 +105,7 @@ function exportarExcel() {
   var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'subcategoria.csv';
+  link.download = 'tpo.csv';
   link.click();
 }
 
@@ -114,30 +114,46 @@ function imprimir() {
 }
 
 function abrirNovo() {
-  document.getElementById('tituloModal').textContent = 'Nova Subcategoria';
+  document.getElementById('tituloModal').textContent = 'Novo TPO';
   document.getElementById('editCodOriginal').value = '';
-  document.getElementById('editCod').value = '';
-  document.getElementById('editDesc').value = '';
-  document.getElementById('editGrupo').value = '';
-  document.getElementById('editTipo').value = '';
-  document.getElementById('editSub').value = '';
+  document.getElementById('editTpo').value = '';
+  document.getElementById('editNome').value = '';
+  document.getElementById('editCfop').value = '';
+  document.getElementById('editGerConPag').value = '0';
+  document.getElementById('editGerConRec').value = '0';
+  document.getElementById('editMateriaPri').value = '0';
+  document.getElementById('editClientePad').value = '';
+  document.getElementById('editNota').value = '';
+  document.getElementById('editPlanoConta').value = '';
+  document.getElementById('editPlanoPagam').value = '';
+  document.getElementById('editVendaLoja').value = '';
+  document.getElementById('editCaixa').value = '';
+  document.getElementById('editTpo').disabled = false;
   document.getElementById('modalEditar').style.display = 'block';
   document.getElementById('mapaOverlay').style.display = 'block';
 }
 
 function editar(cod) {
-  fetch('/subcategoria/editar/' + encodeURIComponent(cod))
+  fetch('/tpo/editar/' + encodeURIComponent(cod))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.registro) { alert('Registro não encontrado'); return; }
       var r = data.registro;
-      document.getElementById('tituloModal').textContent = 'Editar Subcategoria';
+      document.getElementById('tituloModal').textContent = 'Editar TPO';
       document.getElementById('editCodOriginal').value = cod;
-      document.getElementById('editCod').value = r.codconta || '';
-      document.getElementById('editDesc').value = r.desconta || '';
-      document.getElementById('editGrupo').value = r.tipconta || '';
-      document.getElementById('editTipo').value = r.gruconta || '';
-      document.getElementById('editSub').value = r.subcategoria || '';
+      document.getElementById('editTpo').value = r.tpo || '';
+      document.getElementById('editNome').value = r.nome || '';
+      document.getElementById('editCfop').value = r.cfoppadrao || '';
+      document.getElementById('editGerConPag').value = String(r.gerconpag || 0);
+      document.getElementById('editGerConRec').value = String(r.gerconrec || 0);
+      document.getElementById('editMateriaPri').value = String(r.materiapri || 0);
+      document.getElementById('editClientePad').value = r.clientepad || '';
+      document.getElementById('editNota').value = r.nota || '';
+      document.getElementById('editPlanoConta').value = r.planoconta || '';
+      document.getElementById('editPlanoPagam').value = r.planopagam || '';
+      document.getElementById('editVendaLoja').value = r.vendaloja || '';
+      document.getElementById('editCaixa').value = r.caixapadrao || '';
+      document.getElementById('editTpo').disabled = true;
       document.getElementById('modalEditar').style.display = 'block';
       document.getElementById('mapaOverlay').style.display = 'block';
     })
@@ -147,19 +163,26 @@ function editar(cod) {
 function salvarEdicao() {
   var codOriginal = document.getElementById('editCodOriginal').value;
   var dados = {
-    codconta: document.getElementById('editCod').value,
-    desconta: document.getElementById('editDesc').value,
-    tipconta: document.getElementById('editGrupo').value,
-    gruconta: document.getElementById('editTipo').value,
-    subcategoria: document.getElementById('editSub').value
+    tpo: document.getElementById('editTpo').value,
+    nome: document.getElementById('editNome').value,
+    cfoppadrao: document.getElementById('editCfop').value,
+    gerconpag: parseInt(document.getElementById('editGerConPag').value) || 0,
+    gerconrec: parseInt(document.getElementById('editGerConRec').value) || 0,
+    materiapri: parseInt(document.getElementById('editMateriaPri').value) || 0,
+    clientepad: document.getElementById('editClientePad').value,
+    nota: document.getElementById('editNota').value,
+    planoconta: document.getElementById('editPlanoConta').value,
+    planopagam: document.getElementById('editPlanoPagam').value,
+    vendaloja: document.getElementById('editVendaLoja').value,
+    caixapadrao: document.getElementById('editCaixa').value
   };
 
-  if (!dados.codconta || !dados.desconta) {
-    alert('Preencha Código e Descrição');
+  if (!dados.tpo || !dados.nome) {
+    alert('Preencha TPO e Nome');
     return;
   }
 
-  var url = codOriginal ? '/subcategoria/editar/' + encodeURIComponent(codOriginal) : '/subcategoria/novo';
+  var url = codOriginal ? '/tpo/editar/' + encodeURIComponent(codOriginal) : '/tpo/novo';
   var method = codOriginal ? 'PUT' : 'POST';
 
   fetch(url, {
@@ -171,7 +194,7 @@ function salvarEdicao() {
     .then(function(data) {
       if (data.success) {
         fecharModais();
-        loadPage('subcategoria');
+        loadPage('tpo');
       } else {
         alert('Erro: ' + (data.message || 'Não foi possível salvar'));
       }
@@ -179,13 +202,56 @@ function salvarEdicao() {
     .catch(function(err) { alert('Erro: ' + err.message); });
 }
 
-function excluir(cod, desconta) {
-  if (!confirm('Excluir "' + desconta + '"?')) return;
-  fetch('/subcategoria/excluir/' + encodeURIComponent(cod), { method: 'DELETE' })
+
+function salvarEdicao() {
+  var codOriginal = document.getElementById('editCodOriginal').value;
+  var dados = {
+    tpo: document.getElementById('editTpo').value,
+    nome: document.getElementById('editNome').value,
+    cfop: document.getElementById('editCfop').value,
+    gerconpag: parseInt(document.getElementById('editGerConPag').value) || 0,
+    gerconrec: parseInt(document.getElementById('editGerConRec').value) || 0,
+    materiapri: parseInt(document.getElementById('editMateriaPri').value) || 0,
+    clientepad: document.getElementById('editClientePad').value,
+    nota: document.getElementById('editNota').value,
+    planoconta: document.getElementById('editPlanoConta').value,
+    planopagam: document.getElementById('editPlanoPagam').value,
+    vendaloja: document.getElementById('editVendaLoja').value,
+    caixapadrao: document.getElementById('editCaixa').value
+  };
+
+  if (!dados.tpo || !dados.nome) {
+    alert('Preencha TPO e Nome');
+    return;
+  }
+
+  var url = codOriginal ? '/tpo/editar/' + encodeURIComponent(codOriginal) : '/tpo/novo';
+  var method = codOriginal ? 'PUT' : 'POST';
+
+  fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados)
+  })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
-        loadPage('subcategoria');
+        fecharModais();
+        loadPage('tpo');
+      } else {
+        alert('Erro: ' + (data.message || 'Não foi possível salvar'));
+      }
+    })
+    .catch(function(err) { alert('Erro: ' + err.message); });
+}
+
+function excluir(cod, nome) {
+  if (!confirm('Excluir "' + nome + '"?')) return;
+  fetch('/tpo/excluir/' + encodeURIComponent(cod), { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        loadPage('tpo');
       } else {
         alert('Erro: ' + (data.message || 'Não foi possível excluir'));
       }
@@ -195,68 +261,66 @@ function excluir(cod, desconta) {
 
 // ===== BUSCA GERAL AVANÇADA =====
 
-function scAbrirBuscaGeral() {
-  var modal = document.getElementById('scModalBuscaGeral');
+function tpoAbrirBuscaGeral() {
+  var modal = document.getElementById('tpoModalBuscaGeral');
   if (!modal) return;
   modal.style.display = 'block';
   setTimeout(function() {
-    var inp = document.getElementById('scBuscaGeralInput');
+    var inp = document.getElementById('tpoBuscaGeralInput');
     if (inp) inp.focus();
   }, 100);
 }
 
-function scFecharBuscaGeral() {
-  var modal = document.getElementById('scModalBuscaGeral');
+function tpoFecharBuscaGeral() {
+  var modal = document.getElementById('tpoModalBuscaGeral');
   if (modal) modal.style.display = 'none';
 }
 
-function scLimparBusca() {
-  scFiltroAtivo = null;
-  scFecharBuscaGeral();
+function tpoLimparBusca() {
+  tpoFiltroAtivo = null;
+  tpoFecharBuscaGeral();
   filtrarTabela();
 }
 
-function scExecutarBuscaGeral() {
-  var input = document.getElementById('scBuscaGeralInput');
+function tpoExecutarBuscaGeral() {
+  var input = document.getElementById('tpoBuscaGeralInput');
   if (!input) return;
   var texto = input.value.trim();
-  scFiltroAtivo = texto ? texto : null;
-  scFecharBuscaGeral();
+  tpoFiltroAtivo = texto ? texto : null;
+  tpoFecharBuscaGeral();
   filtrarTabela();
 }
 
-// col: 0=Ord, 1=Codigo, 2=Desc, 3=Grupo, 4=Tipo, 5=Sub
-var scCampos = { codigo: 1, desc: 2, grupo: 3, tipo: 4, sub: 5 };
+// col: 0=Ord, 1=TPO, 2=Nome, 3=CFOP
+var tpoCampos = { tpo: 1, nome: 2, cfop: 3 };
 
-function scExecutarFiltroAvancado(linha) {
-  if (!scFiltroAtivo) return true;
-  var termos = scFiltroAtivo.split(';');
+function tpoExecutarFiltroAvancado(linha) {
+  if (!tpoFiltroAtivo) return true;
+  var termos = tpoFiltroAtivo.split(';');
   for (var t = 0; t < termos.length; t++) {
     var termo = termos[t].trim();
     if (!termo) continue;
 
-    // Excluir: -PALAVRA
     if (termo.charAt(0) === '-' && termo.indexOf(':') === -1) {
       var excluir = termo.substring(1).toUpperCase();
       if (linha.textContent.toUpperCase().indexOf(excluir) >= 0) return false;
       continue;
     }
 
-    // Campo especifico: campo:valor
     if (termo.indexOf(':') >= 0) {
       var parts = termo.split(':');
       var campo = parts[0].toLowerCase().trim();
       var valor = parts.slice(1).join(':').toUpperCase().trim();
       if (campo.charAt(0) === '-') {
         campo = campo.substring(1);
-        var idx = scCampos[campo];
+        var idx = tpoCampos[campo];
         if (idx !== undefined) {
           var cellVal = (linha.cells[idx] ? linha.cells[idx].textContent : '').toUpperCase().trim();
           if (cellVal.indexOf(valor) >= 0) return false;
         }
         continue;
       }
-      var idx2 = scCampos[campo];
+      var idx2 = tpoCampos[campo];
       if (idx2 !== undefined) {
         var cellVal2 = (linha.cells[idx2] ? linha.cells[idx2].textContent : '').toUpperCase().trim();
         if (cellVal2.indexOf(valor) === -1) return false;
@@ -266,7 +330,6 @@ function scExecutarFiltroAvancado(linha) {
       continue;
     }
 
-    // Palavra simples
     var palavra = termo.toUpperCase();
     var encontrou = false;
     for (var c = 0; c < linha.cells.length; c++) {
@@ -286,8 +349,8 @@ function scExecutarFiltroAvancado(linha) {
   var offsetX = 0, offsetY = 0;
   var modal = null;
   document.addEventListener('mousedown', function(e) {
-    var header = document.getElementById('scBuscaGeralHeader');
-    modal = document.getElementById('scModalBuscaGeral');
+    var header = document.getElementById('tpoBuscaGeralHeader');
+    modal = document.getElementById('tpoModalBuscaGeral');
     if (header && modal && header.contains(e.target)) {
       isDragging = true;
       var rect = modal.getBoundingClientRect();
@@ -309,6 +372,6 @@ function scExecutarFiltroAvancado(linha) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     fecharModais();
-    scFecharBuscaGeral();
+    tpoFecharBuscaGeral();
   }
 });

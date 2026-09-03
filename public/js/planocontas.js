@@ -1,6 +1,6 @@
-var scOrdemAsc = true;
-var scColunaOrdenada = -1;
-var scFiltroAtivo = null;
+var pcOrdemAsc = true;
+var pcColunaOrdenada = -1;
+var pcFiltroAtivo = null;
 
 function voltarBancos() {
   loadPage('bancos');
@@ -14,8 +14,8 @@ function filtrarTabela() {
     if (l.cells.length < 2) { l.style.display = 'none'; return; }
     var mostrar = true;
 
-    if (mostrar && scFiltroAtivo) {
-      mostrar = scExecutarFiltroAvancado(l);
+    if (mostrar && pcFiltroAtivo) {
+      mostrar = pcExecutarFiltroAvancado(l);
     }
 
     l.style.display = mostrar ? '' : 'none';
@@ -38,8 +38,8 @@ function ordenar(col) {
   if (linhas.length === 0) return;
   if (linhas[0].cells.length < 2) return;
 
-  scOrdemAsc = (col === scColunaOrdenada) ? !scOrdemAsc : true;
-  scColunaOrdenada = col;
+  pcOrdemAsc = (col === pcColunaOrdenada) ? !pcOrdemAsc : true;
+  pcColunaOrdenada = col;
 
   linhas.sort(function(a, b) {
     var va = a.cells[col].textContent.trim();
@@ -48,10 +48,10 @@ function ordenar(col) {
     var na = parseFloat(va.replace(/\./g, '').replace(',', '.'));
     var nb = parseFloat(vb.replace(/\./g, '').replace(',', '.'));
     if (!isNaN(na) && !isNaN(nb) && va !== '' && vb !== '') {
-      return scOrdemAsc ? na - nb : nb - na;
+      return pcOrdemAsc ? na - nb : nb - na;
     }
 
-    return scOrdemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    return pcOrdemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
   });
 
   linhas.forEach(function(l) { tbody.appendChild(l); });
@@ -105,7 +105,7 @@ function exportarExcel() {
   var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'subcategoria.csv';
+  link.download = 'plano_contas.csv';
   link.click();
 }
 
@@ -114,7 +114,7 @@ function imprimir() {
 }
 
 function abrirNovo() {
-  document.getElementById('tituloModal').textContent = 'Nova Subcategoria';
+  document.getElementById('tituloModal').textContent = 'Novo Plano de Contas';
   document.getElementById('editCodOriginal').value = '';
   document.getElementById('editCod').value = '';
   document.getElementById('editDesc').value = '';
@@ -126,12 +126,12 @@ function abrirNovo() {
 }
 
 function editar(cod) {
-  fetch('/subcategoria/editar/' + encodeURIComponent(cod))
+  fetch('/planocontas/editar/' + encodeURIComponent(cod))
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (!data.registro) { alert('Registro não encontrado'); return; }
       var r = data.registro;
-      document.getElementById('tituloModal').textContent = 'Editar Subcategoria';
+      document.getElementById('tituloModal').textContent = 'Editar Plano de Contas';
       document.getElementById('editCodOriginal').value = cod;
       document.getElementById('editCod').value = r.codconta || '';
       document.getElementById('editDesc').value = r.desconta || '';
@@ -159,7 +159,7 @@ function salvarEdicao() {
     return;
   }
 
-  var url = codOriginal ? '/subcategoria/editar/' + encodeURIComponent(codOriginal) : '/subcategoria/novo';
+  var url = codOriginal ? '/planocontas/editar/' + encodeURIComponent(codOriginal) : '/planocontas/novo';
   var method = codOriginal ? 'PUT' : 'POST';
 
   fetch(url, {
@@ -171,7 +171,7 @@ function salvarEdicao() {
     .then(function(data) {
       if (data.success) {
         fecharModais();
-        loadPage('subcategoria');
+        loadPage('categoria');
       } else {
         alert('Erro: ' + (data.message || 'Não foi possível salvar'));
       }
@@ -181,11 +181,11 @@ function salvarEdicao() {
 
 function excluir(cod, desconta) {
   if (!confirm('Excluir "' + desconta + '"?')) return;
-  fetch('/subcategoria/excluir/' + encodeURIComponent(cod), { method: 'DELETE' })
+  fetch('/planocontas/excluir/' + encodeURIComponent(cod), { method: 'DELETE' })
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data.success) {
-        loadPage('subcategoria');
+        loadPage('categoria');
       } else {
         alert('Erro: ' + (data.message || 'Não foi possível excluir'));
       }
@@ -195,42 +195,44 @@ function excluir(cod, desconta) {
 
 // ===== BUSCA GERAL AVANÇADA =====
 
-function scAbrirBuscaGeral() {
-  var modal = document.getElementById('scModalBuscaGeral');
+
+// ===== BUSCA GERAL AVANÇADA (Plano de Contas) =====
+
+function pcAbrirBuscaGeral() {
+  var modal = document.getElementById('pcModalBuscaGeral');
   if (!modal) return;
   modal.style.display = 'block';
   setTimeout(function() {
-    var inp = document.getElementById('scBuscaGeralInput');
+    var inp = document.getElementById('pcBuscaGeralInput');
     if (inp) inp.focus();
   }, 100);
 }
 
-function scFecharBuscaGeral() {
-  var modal = document.getElementById('scModalBuscaGeral');
+function pcFecharBuscaGeral() {
+  var modal = document.getElementById('pcModalBuscaGeral');
   if (modal) modal.style.display = 'none';
 }
 
-function scLimparBusca() {
-  scFiltroAtivo = null;
-  scFecharBuscaGeral();
+function pcLimparBusca() {
+  pcFiltroAtivo = null;
+  pcFecharBuscaGeral();
   filtrarTabela();
 }
 
-function scExecutarBuscaGeral() {
-  var input = document.getElementById('scBuscaGeralInput');
+function pcExecutarBuscaGeral() {
+  var input = document.getElementById('pcBuscaGeralInput');
   if (!input) return;
   var texto = input.value.trim();
-  scFiltroAtivo = texto ? texto : null;
-  scFecharBuscaGeral();
+  pcFiltroAtivo = texto ? texto : null;
+  pcFecharBuscaGeral();
   filtrarTabela();
 }
 
-// col: 0=Ord, 1=Codigo, 2=Desc, 3=Grupo, 4=Tipo, 5=Sub
-var scCampos = { codigo: 1, desc: 2, grupo: 3, tipo: 4, sub: 5 };
+var pcCampos = { codigo: 1, desc: 2, grupo: 3, tipo: 4 };
 
-function scExecutarFiltroAvancado(linha) {
-  if (!scFiltroAtivo) return true;
-  var termos = scFiltroAtivo.split(';');
+function pcExecutarFiltroAvancado(linha) {
+  if (!pcFiltroAtivo) return true;
+  var termos = pcFiltroAtivo.split(';');
   for (var t = 0; t < termos.length; t++) {
     var termo = termos[t].trim();
     if (!termo) continue;
@@ -249,14 +251,14 @@ function scExecutarFiltroAvancado(linha) {
       var valor = parts.slice(1).join(':').toUpperCase().trim();
       if (campo.charAt(0) === '-') {
         campo = campo.substring(1);
-        var idx = scCampos[campo];
+        var idx = pcCampos[campo];
         if (idx !== undefined) {
           var cellVal = (linha.cells[idx] ? linha.cells[idx].textContent : '').toUpperCase().trim();
           if (cellVal.indexOf(valor) >= 0) return false;
         }
         continue;
       }
-      var idx2 = scCampos[campo];
+      var idx2 = pcCampos[campo];
       if (idx2 !== undefined) {
         var cellVal2 = (linha.cells[idx2] ? linha.cells[idx2].textContent : '').toUpperCase().trim();
         if (cellVal2.indexOf(valor) === -1) return false;
@@ -286,8 +288,106 @@ function scExecutarFiltroAvancado(linha) {
   var offsetX = 0, offsetY = 0;
   var modal = null;
   document.addEventListener('mousedown', function(e) {
-    var header = document.getElementById('scBuscaGeralHeader');
-    modal = document.getElementById('scModalBuscaGeral');
+    var header = document.getElementById('pcBuscaGeralHeader');
+    modal = document.getElementById('pcModalBuscaGeral');
+    if (header && modal && header.contains(e.target)) {
+      isDragging = true;
+      var rect = modal.getBoundingClientRect();
+      offsetX = e.clientX - rect.left;
+      offsetY = e.clientY - rect.top;
+      e.preventDefault();
+    }
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (isDragging && modal) {
+      modal.style.left = (e.clientX - offsetX) + 'px';
+      modal.style.top = (e.clientY - offsetY) + 'px';
+      modal.style.right = 'auto';
+    }
+  });
+  document.addEventListener('mouseup', function() { isDragging = false; });
+})();
+
+
+function pcFecharBuscaGeral() {
+  var modal = document.getElementById('pcModalBuscaGeral');
+  if (modal) modal.style.display = 'none';
+}
+
+function pcLimparBusca() {
+  pcFiltroAtivo = null;
+  pcFecharBuscaGeral();
+  filtrarTabela();
+}
+
+function pcExecutarBuscaGeral() {
+  var input = document.getElementById('pcBuscaGeralInput');
+  if (!input) return;
+  var texto = input.value.trim();
+  pcFiltroAtivo = texto ? texto : null;
+  pcFecharBuscaGeral();
+  filtrarTabela();
+}
+
+var pcCampos = { codigo: 1, desc: 2, grupo: 3, tipo: 4 };
+
+function pcExecutarFiltroAvancado(linha) {
+  if (!pcFiltroAtivo) return true;
+  var termos = pcFiltroAtivo.split(';');
+  for (var t = 0; t < termos.length; t++) {
+    var termo = termos[t].trim();
+    if (!termo) continue;
+
+    if (termo.charAt(0) === '-' && termo.indexOf(':') === -1) {
+      var excluir = termo.substring(1).toUpperCase();
+      if (linha.textContent.toUpperCase().indexOf(excluir) >= 0) return false;
+      continue;
+    }
+
+    if (termo.indexOf(':') >= 0) {
+      var parts = termo.split(':');
+      var campo = parts[0].toLowerCase().trim();
+      var valor = parts.slice(1).join(':').toUpperCase().trim();
+      if (campo.charAt(0) === '-') {
+        campo = campo.substring(1);
+        var idx = pcCampos[campo];
+        if (idx !== undefined) {
+          var cellVal = (linha.cells[idx] ? linha.cells[idx].textContent : '').toUpperCase().trim();
+          if (cellVal.indexOf(valor) >= 0) return false;
+        }
+        continue;
+      }
+      var idx2 = pcCampos[campo];
+      if (idx2 !== undefined) {
+        var cellVal2 = (linha.cells[idx2] ? linha.cells[idx2].textContent : '').toUpperCase().trim();
+        if (cellVal2.indexOf(valor) === -1) return false;
+      } else {
+        if (linha.textContent.toUpperCase().indexOf(valor) === -1) return false;
+      }
+      continue;
+    }
+
+    var palavra = termo.toUpperCase();
+    var encontrou = false;
+    for (var c = 0; c < linha.cells.length; c++) {
+      if (linha.cells[c].textContent.toUpperCase().indexOf(palavra) >= 0) {
+        encontrou = true;
+        break;
+      }
+    }
+    if (!encontrou) return false;
+  }
+  return true;
+}
+
+// ===== DRAG DO MODAL =====
+(function() {
+  var isDragging = false;
+  var offsetX = 0, offsetY = 0;
+  var modal = null;
+  document.addEventListener('mousedown', function(e) {
+    var header = document.getElementById('pcBuscaGeralHeader');
+    modal = document.getElementById('pcModalBuscaGeral');
     if (header && modal && header.contains(e.target)) {
       isDragging = true;
       var rect = modal.getBoundingClientRect();
@@ -309,6 +409,6 @@ function scExecutarFiltroAvancado(linha) {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     fecharModais();
-    scFecharBuscaGeral();
+    pcFecharBuscaGeral();
   }
 });

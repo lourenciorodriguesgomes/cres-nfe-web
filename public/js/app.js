@@ -14,9 +14,12 @@ fetch('/api/verificar')
     window.location.href = '/login';
   });
 
+
+
 const pageTitles = {
-bancos: 'Bancos', mapacli: 'xxxxxxxxxxMapa de Clientes', contacorrente: 'Conta Corrente', extrato: 'Extrato', conciliacao: 'Conciliação', extratoct: 'Extrato CT', categoria: 'Categoria', subcategoria: 'Sub Categoria', estoque: 'Estoque',
+  bancos: 'Bancos', mapacli: 'Mapa de Clientes', clientes_fornecedores: 'Clientes / Fornecedores', prestacoes: 'Prestações', contacorrente: 'Conta Corrente', extrato: 'Extrato', conciliacao: 'Conciliação', extratoct: 'Extrato CT', categoria: 'Categoria', subcategoria: 'Sub Categoria', tpo: 'TPO', fluxocaixa: 'Fluxo de Caixa', demonstrafluxo: 'Demonstra Fluxo', estoque: 'Estoque', planocontas: 'Plano de Contas',
 };
+
 
 
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -30,13 +33,592 @@ document.querySelectorAll('.nav-item').forEach(item => {
   });
 });
 
+
+
+// ===================== CLIENTES / FORNECEDORES =====================
+
+function getClientesFornecedoresPageHTML() {
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Tabela de Clientes / Fornecedores</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="filtrarClienteLetra()">Filtrar por Letra</button>
+          <button class="btn btn-outline btn-sm" onclick="buscaClienteGeral()">Pesquisa Geral</button>
+          <button class="btn btn-outline btn-sm" onclick="exportarClientesExcel()">Exportar Excel</button>
+          <button class="btn btn-primary btn-sm" onclick="openModalClienteFornecedor(null)">+ Novo</button>
+        </div>
+      </div>
+      <div class="table-container">
+        <table style="font-size:12px;">
+          <thead>
+            <tr>
+              <th style="width:40px;">Ord</th>
+              <th style="width:70px;">Código</th>
+              <th>Nome do Cliente</th>
+              <th>Endereço</th>
+              <th style="width:100px;">Bairro</th>
+              <th style="width:100px;">Cidade</th>
+              <th style="width:30px;">UF</th>
+              <th style="width:90px;">Telefone</th>
+              <th style="width:40px;">CC</th>
+              <th style="width:40px;">Cat</th>
+              <th style="width:90px;">CPF</th>
+              <th style="width:100px;">Categoria</th>
+              <th style="width:80px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="clientesFornTableBody">
+            <tr><td colspan="13" style="text-align:center;color:var(--text-muted);">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+let clientesFornecedoresData = [];
+let clientesFornecedoresOriginais = [];
+
+// ===================== CLIENTES / FORNECEDORES =====================
+
+var cliOrdemAsc = true;
+var cliColunaOrdenada = -1;
+var cliDadosOriginais = [];
+
+function getClientesFornecedoresPageHTML() {
+  return `
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+      <button class="btn btn-outline btn-sm" onclick="loadPage('fluxocaixa')">⬅ Voltar</button>
+      <input type="text" id="cliBuscaGeral" class="form-control" style="flex:1;min-width:200px;" placeholder="Buscar por nome, CPF, cidade..." oninput="cliFiltrarTabela()">
+      <button class="btn btn-outline btn-sm" onclick="cliBuscaGeral()">🔍 Buscar</button>
+      <button class="btn btn-outline btn-sm" onclick="cliExportarExcel()">📊 Exportar</button>
+      <button class="btn btn-outline btn-sm" onclick="cliImprimir()">🖨️ Imprimir</button>
+      <button class="btn btn-primary btn-sm" onclick="cliAbrirNovo()">+ Novo</button>
+    </div>
+    <div class="card">
+      <div class="table-container">
+        <table id="cliTabela" style="font-size:12px;width:100%;">
+          <thead>
+            <tr style="background:#1a1d29;color:#fff;cursor:pointer;">
+              <th style="width:40px;" onclick="cliOrdenar(0)">Ord</th>
+              <th style="width:100px;" onclick="cliOrdenar(1)">Código</th>
+              <th onclick="cliOrdenar(2)">Nome do Cliente</th>
+              <th style="width:120px;" onclick="cliOrdenar(3)">Endereço</th>
+              <th style="width:100px;" onclick="cliOrdenar(4)">Bairro</th>
+              <th style="width:100px;" onclick="cliOrdenar(5)">Cidade</th>
+              <th style="width:30px;" onclick="cliOrdenar(6)">UF</th>
+              <th style="width:90px;" onclick="cliOrdenar(7)">Telefone</th>
+              <th style="width:80px;" onclick="cliOrdenar(8)">CPF/CNPJ</th>
+              <th style="width:60px;" onclick="cliOrdenar(9)">Categoria</th>
+              <th style="width:80px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="cliTabelaBody">
+            <tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text-muted);">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="padding:8px 12px;font-size:12px;color:var(--text-muted);">
+        <span id="cliStatusInfo">Total: 0 cliente(s)</span>
+      </div>
+    </div>
+  `;
+}
+
+async function loadClientesFornecedores() {
+  try {
+    const res = await fetch('/clientes-fornecedores/listar');
+    if (!res.ok) throw new Error('Erro ao consultar dados');
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    cliDadosOriginais = data;
+    cliRenderTabela(data);
+  } catch (err) {
+    console.error('Erro:', err);
+    document.getElementById('cliTabelaBody').innerHTML =
+      '<tr><td colspan="11" style="text-align:center;padding:20px;color:red;">Erro ao consultar dados</td></tr>';
+  }
+}
+
+function cliRenderTabela(clientes) {
+  var tbody = document.getElementById('cliTabelaBody');
+  document.getElementById('cliStatusInfo').textContent = 'Total: ' + clientes.length + ' cliente(s)';
+  if (!clientes.length) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum cliente encontrado</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < clientes.length; i++) {
+    var c = clientes[i];
+    var cod = c.cdcliente || '';
+    var nome = (c.nomecli || '').replace(/'/g, "\'");
+    var cpf = c.cpf || '';
+    html += '<tr data-id="' + cod + '" onclick="cliSelecionarLinha(this)" ondblclick="cliEditar(\'' + cod + '\')" style="cursor:pointer;">' +
+      '<td style="text-align:center;">' + (i + 1) + '</td>' +
+      '<td>' + cod + '</td>' +
+      '<td style="font-weight:500;">' + (c.nomecli || '') + '</td>' +
+      '<td>' + (c.endereco || '') + '</td>' +
+      '<td>' + (c.bairro || '') + '</td>' +
+      '<td>' + (c.cidade || '') + '</td>' +
+      '<td style="text-align:center;">' + (c.estado || '') + '</td>' +
+      '<td>' + (c.telefone || '') + '</td>' +
+      '<td>' + cpf + '</td>' +
+      '<td style="text-align:center;">' + (c.cat_nome || c.cat_codigo || '') + '</td>' +
+      '<td style="text-align:center;white-space:nowrap;">' +
+        '<button class="btn btn-outline btn-sm" style="padding:2px 6px;" onclick="event.stopPropagation();cliEditar(\'' + cod + '\')" title="Editar">✏️</button>' +
+        '<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:red;" onclick="event.stopPropagation();cliExcluir(\'' + cod + '\',\'' + nome + '\')" title="Excluir">🗑️</button>' +
+      '</td>' +
+    '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function cliSelecionarLinha(tr) {
+  var sel = tr.parentElement.querySelector('.selecionado');
+  if (sel) sel.classList.remove('selecionado');
+  tr.classList.add('selecionado');
+}
+
+function cliOrdenar(col) {
+  var tbody = document.getElementById('cliTabelaBody');
+  var linhas = Array.from(tbody.querySelectorAll('tr'));
+  if (linhas.length === 0 || linhas[0].cells.length < 2) return;
+  cliOrdemAsc = (col === cliColunaOrdenada) ? !cliOrdemAsc : true;
+  cliColunaOrdenada = col;
+  linhas.sort(function(a, b) {
+    var va = a.cells[col].textContent.trim();
+    var vb = b.cells[col].textContent.trim();
+    if (!isNaN(va) && !isNaN(vb) && va !== '' && vb !== '') {
+      return cliOrdemAsc ? parseFloat(va) - parseFloat(vb) : parseFloat(vb) - parseFloat(va);
+    }
+    return cliOrdemAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
+  linhas.forEach(function(l) { tbody.appendChild(l); });
+  var ths = document.querySelectorAll('#cliTabela thead th');
+  ths.forEach(function(th, i) {
+    th.style.background = '';
+    if (i === col) th.style.background = cliOrdemAsc ? '#2d5f8a' : '#8a3d2d';
+  });
+}
+
+function cliFiltrarTabela() {
+  var termo = document.getElementById('cliBuscaGeral').value.toLowerCase().trim();
+  if (!termo) {
+    cliRenderTabela(cliDadosOriginais);
+    return;
+  }
+  var filtrados = cliDadosOriginais.filter(function(c) {
+    return Object.values(c).some(function(v) {
+      return String(v || '').toLowerCase().indexOf(termo) !== -1;
+    });
+  });
+  cliRenderTabela(filtrados);
+}
+
+function cliBuscaGeral() {
+  var termo = document.getElementById('cliBuscaGeral').value.trim();
+  if (!termo) {
+    loadClientesFornecedores();
+    return;
+  }
+  fetch('/clientes-fornecedores/buscar?q=' + encodeURIComponent(termo))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert(data.error); return; }
+      cliRenderTabela(data);
+    })
+    .catch(function() { alert('Erro ao buscar'); });
+}
+
+function cliEditar(id) {
+  fetch('/clientes-fornecedores/editar/' + encodeURIComponent(id))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { alert(data.error); return; }
+      var cli = data.cliente || {};
+      document.getElementById('modalTitle').innerText = 'Editar Cliente / Fornecedor';
+      document.getElementById('modalBody').innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;gap:10px;">
+            <div style="flex:0.3;"><label>Código</label><input type="text" class="form-control" id="cli_cdcliente" value="${cli.cdcliente || id}" readonly></div>
+            <div style="flex:1;"><label>Nome / Razão Social</label><input type="text" class="form-control" id="cli_nomecli" value="${cli.nomecli || ''}"></div>
+          </div>
+          <div><label>Endereço</label><input type="text" class="form-control" id="cli_endereco" value="${cli.endereco || ''}"></div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;"><label>Bairro</label><input type="text" class="form-control" id="cli_bairro" value="${cli.bairro || ''}"></div>
+            <div style="flex:1;"><label>Cidade</label><input type="text" class="form-control" id="cli_cidade" value="${cli.cidade || ''}"></div>
+            <div style="flex:0.2;"><label>UF</label><input type="text" class="form-control" id="cli_estado" maxlength="2" value="${cli.estado || ''}"></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;"><label>Telefone</label><input type="text" class="form-control" id="cli_telefone" value="${cli.telefone || ''}"></div>
+            <div style="flex:0.5;"><label>CPF / CNPJ</label><input type="text" class="form-control" id="cli_cpf" value="${cli.cpf || ''}"></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+              <label>Categoria</label>
+              <select class="form-control" id="cli_categoria">
+                <option value="">Selecione...</option>
+                ${(data.categorias || []).map(function(c) { return '<option value="' + c.codigo + '"' + (cli.categoria == c.codigo ? ' selected' : '') + '>' + c.categoria + '</option>'; }).join('')}
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label>Subcategoria</label>
+              <select class="form-control" id="cli_subcategoria">
+                <option value="">Selecione...</option>
+                ${(data.subcategorias || []).map(function(s) { return '<option value="' + s.subcategoria + '"' + (cli.subcategoria == s.subcategoria ? ' selected' : '') + '>' + s.desconta + '</option>'; }).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal').dataset.editId = id;
+      document.getElementById('modal').dataset.modo = 'editar';
+      document.getElementById('modalOverlay').style.display = 'flex';
+    })
+    .catch(function() { alert('Erro ao carregar dados'); });
+}
+
+function cliAbrirNovo() {
+  fetch('/clientes-fornecedores/editar/0')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      document.getElementById('modalTitle').innerText = 'Novo Cliente / Fornecedor';
+      document.getElementById('modalBody').innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;gap:10px;">
+            <div style="flex:0.3;"><label>Código</label><input type="text" class="form-control" id="cli_cdcliente"></div>
+            <div style="flex:1;"><label>Nome / Razão Social</label><input type="text" class="form-control" id="cli_nomecli"></div>
+          </div>
+          <div><label>Endereço</label><input type="text" class="form-control" id="cli_endereco"></div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;"><label>Bairro</label><input type="text" class="form-control" id="cli_bairro"></div>
+            <div style="flex:1;"><label>Cidade</label><input type="text" class="form-control" id="cli_cidade"></div>
+            <div style="flex:0.2;"><label>UF</label><input type="text" class="form-control" id="cli_estado" maxlength="2"></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;"><label>Telefone</label><input type="text" class="form-control" id="cli_telefone"></div>
+            <div style="flex:0.5;"><label>CPF / CNPJ</label><input type="text" class="form-control" id="cli_cpf"></div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;">
+              <label>Categoria</label>
+              <select class="form-control" id="cli_categoria">
+                <option value="">Selecione...</option>
+                ${(data.categorias || []).map(function(c) { return '<option value="' + c.codigo + '">' + c.categoria + '</option>'; }).join('')}
+              </select>
+            </div>
+            <div style="flex:1;">
+              <label>Subcategoria</label>
+              <select class="form-control" id="cli_subcategoria">
+                <option value="">Selecione...</option>
+                ${(data.subcategorias || []).map(function(s) { return '<option value="' + s.subcategoria + '">' + s.desconta + '</option>'; }).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('modal').dataset.editId = '';
+      document.getElementById('modal').dataset.modo = 'novo';
+      document.getElementById('modalOverlay').style.display = 'flex';
+    })
+    .catch(function() {
+      document.getElementById('modalTitle').innerText = 'Novo Cliente / Fornecedor';
+      document.getElementById('modalBody').innerHTML = '<p style="color:red;">Erro ao carregar categorias</p>';
+      document.getElementById('modalOverlay').style.display = 'flex';
+    });
+}
+
+async function cliSalvar() {
+  var modo = document.getElementById('modal').dataset.modo;
+  var editId = document.getElementById('modal').dataset.editId;
+  var dados = {
+    cdcliente: document.getElementById('cli_cdcliente').value.trim(),
+    nomecli: document.getElementById('cli_nomecli').value.trim(),
+    endereco: document.getElementById('cli_endereco').value.trim(),
+    bairro: document.getElementById('cli_bairro').value.trim(),
+    cidade: document.getElementById('cli_cidade').value.trim(),
+    estado: document.getElementById('cli_estado').value.trim(),
+    telefone: document.getElementById('cli_telefone').value.trim(),
+    cpf: document.getElementById('cli_cpf').value.trim(),
+    cencusto: '',
+    categoria: document.getElementById('cli_categoria').value,
+    subcategoria: document.getElementById('cli_subcategoria').value
+  };
+  try {
+    var url, method;
+    if (modo === 'novo') {
+      url = '/clientes-fornecedores/novo';
+      method = 'POST';
+    } else {
+      url = '/clientes-fornecedores/editar/' + encodeURIComponent(editId);
+      method = 'PUT';
+    }
+    var res = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+    var result = await res.json();
+    if (result.success) {
+      closeModal();
+      loadClientesFornecedores();
+    } else {
+      alert(result.error || 'Erro ao salvar');
+    }
+  } catch (err) {
+    alert('Erro ao salvar cliente');
+  }
+}
+
+function cliExcluir(id, nome) {
+  if (!confirm('Excluir "' + nome + '"?')) return;
+  fetch('/clientes-fornecedores/excluir/' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) { loadClientesFornecedores(); }
+      else { alert('Erro: ' + (data.error || '')); }
+    })
+    .catch(function() { alert('Erro ao excluir'); });
+}
+
+function cliExportarExcel() {
+  var csv = 'Ord;Codigo;Nome;Endereco;Bairro;Cidade;UF;Telefone;CPF;Categoria\n';
+  cliDadosOriginais.forEach(function(c, i) {
+    csv += (i + 1) + ';' + (c.cdcliente || '') + ';' + (c.nomecli || '') + ';' + (c.endereco || '') + ';' + (c.bairro || '') + ';' + (c.cidade || '') + ';' + (c.estado || '') + ';' + (c.telefone || '') + ';' + (c.cpf || '') + ';' + (c.cat_nome || '') + '\n';
+  });
+  var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'clientes.csv';
+  link.click();
+}
+
+function cliImprimir() {
+  window.print();
+}
+
+
+function renderClientesFornecedores(data) {
+  const tbody = document.getElementById('clientesFornTableBody');
+  if (!tbody) return;
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:var(--text-muted);">Nenhum cliente encontrado</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map((c, i) => {
+    const rowColor = i % 2 === 0 ? '#f9f9f9' : '#ffffff';
+    return `
+      <tr style="background:${rowColor};" ondblclick="openModalClienteFornecedor('${c.cdcliente}')">
+        <td style="text-align:center;">${i + 1}</td>
+        <td>${c.cdcliente || ''}</td>
+        <td style="font-weight:500;">${c.nomecli || ''}</td>
+        <td>${c.endereco || ''}</td>
+        <td>${c.bairro || ''}</td>
+        <td>${c.cidade || ''}</td>
+        <td style="text-align:center;">${c.estado || ''}</td>
+        <td>${c.telefone || ''}</td>
+        <td style="text-align:center;">${c.cencusto || ''}</td>
+        <td style="text-align:center;">${c.cat_codigo || ''}</td>
+        <td>${c.cpf || ''}</td>
+        <td>${c.cat_nome || ''}</td>
+        <td style="text-align:center;white-space:nowrap;">
+          <button class="btn btn-outline btn-sm" style="padding:2px 8px;" onclick="event.stopPropagation();openModalClienteFornecedor('${c.cdcliente}')" title="Editar">✏️</button>
+          <button class="btn btn-outline btn-sm" style="padding:2px 8px;color:red;" onclick="event.stopPropagation();deleteClienteFornecedor('${c.cdcliente}')" title="Excluir">🗑️</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openModalClienteFornecedor(id) {
+  const isEdit = id !== null && id !== undefined;
+  document.getElementById('modalTitle').innerText = isEdit ? 'Editar Cliente / Fornecedor' : 'Novo Cliente / Fornecedor';
+
+  let cliente = {};
+  if (isEdit) {
+    cliente = clientesFornecedoresData.find(c => String(c.cdcliente) === String(id)) || {};
+  }
+
+  document.getElementById('modalBody').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="form-row" style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:0.3;">
+          <label>Código</label>
+          <input type="text" class="form-control" id="cli_cdcliente" value="${cliente.cdcliente || ''}" ${isEdit ? 'readonly' : ''}>
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Nome / Razão Social</label>
+          <input type="text" class="form-control" id="cli_nomecli" value="${cliente.nomecli || ''}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Endereço</label>
+        <input type="text" class="form-control" id="cli_endereco" value="${cliente.endereco || ''}">
+      </div>
+      <div class="form-row" style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Bairro</label>
+          <input type="text" class="form-control" id="cli_bairro" value="${cliente.bairro || ''}">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label>Cidade</label>
+          <input type="text" class="form-control" id="cli_cidade" value="${cliente.cidade || ''}">
+        </div>
+        <div class="form-group" style="flex:0.3;">
+          <label>UF</label>
+          <input type="text" class="form-control" id="cli_estado" maxlength="2" value="${cliente.estado || ''}">
+        </div>
+      </div>
+      <div class="form-row" style="display:flex;gap:10px;">
+        <div class="form-group" style="flex:1;">
+          <label>Telefone</label>
+          <input type="text" class="form-control" id="cli_telefone" value="${cliente.telefone || ''}">
+        </div>
+        <div class="form-group" style="flex:0.5;">
+          <label>CPF / CNPJ</label>
+          <input type="text" class="form-control" id="cli_cpf" value="${cliente.cpf || ''}">
+        </div>
+        <div class="form-group" style="flex:0.3;">
+          <label>Centro Custo</label>
+          <input type="text" class="form-control" id="cli_cencusto" value="${cliente.cencusto || ''}">
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('modal').dataset.editId = isEdit ? id : '';
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+
+async function saveClienteFornecedor() {
+  const editId = document.getElementById('modal').dataset.editId;
+  const data = {
+    cdcliente: document.getElementById('cli_cdcliente').value.trim(),
+    nomecli: document.getElementById('cli_nomecli').value.trim(),
+    endereco: document.getElementById('cli_endereco').value.trim(),
+    bairro: document.getElementById('cli_bairro').value.trim(),
+    cidade: document.getElementById('cli_cidade').value.trim(),
+    estado: document.getElementById('cli_estado').value.trim(),
+    telefone: document.getElementById('cli_telefone').value.trim(),
+    cencusto: document.getElementById('cli_cencusto').value.trim(),
+    cpf: document.getElementById('cli_cpf').value.trim()
+  };
+
+  try {
+    let res;
+    if (editId) {
+      res = await fetch(`/api/clientes-fornecedores/${editId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    } else {
+      res = await fetch('/api/clientes-fornecedores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+    }
+    const result = await res.json();
+    if (result.success) {
+      closeModal();
+      loadClientesFornecedores();
+    } else {
+      alert(result.error || 'Erro ao salvar');
+    }
+  } catch (err) {
+    alert('Erro ao salvar cliente');
+  }
+}
+
+async function deleteClienteFornecedor(id) {
+  if (!confirm('Confirmar exclusão do cliente ' + id + '?')) return;
+  try {
+    const res = await fetch(`/api/clientes-fornecedores/${id}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.success) {
+      loadClientesFornecedores();
+    } else {
+      alert(result.error || 'Erro ao excluir');
+    }
+  } catch (err) {
+    alert('Erro ao excluir cliente');
+  }
+}
+
+function filtrarClienteLetra() {
+  const letra = prompt('Digite a letra inicial para filtrar:');
+  if (!letra) {
+    renderClientesFornecedores(clientesFornecedoresOriginais);
+    return;
+  }
+  const filtrados = clientesFornecedoresOriginais.filter(c =>
+    (c.nomecli || '').toUpperCase().startsWith(letra.toUpperCase())
+  );
+  renderClientesFornecedores(filtrados);
+}
+
+function buscaClienteGeral() {
+  const termo = prompt('Digite o termo de busca (nome, cidade, CPF, etc):');
+  if (!termo) {
+    renderClientesFornecedores(clientesFornecedoresOriginais);
+    return;
+  }
+  const t = termo.toLowerCase();
+  const filtrados = clientesFornecedoresOriginais.filter(c =>
+    Object.values(c).some(v => String(v || '').toLowerCase().includes(t))
+  );
+  renderClientesFornecedores(filtrados);
+}
+
+function exportarClientesExcel() {
+  let csv = 'Ord;Codigo;Nome;Endereco;Bairro;Cidade;UF;Telefone;CC;Cat;CPF;Categoria\n';
+  clientesFornecedoresData.forEach((c, i) => {
+    csv += `${i + 1};${c.cdcliente || ''};${c.nomecli || ''};${c.endereco || ''};${c.bairro || ''};${c.cidade || ''};${c.estado || ''};${c.telefone || ''};${c.cencusto || ''};${c.cat_codigo || ''};${c.cpf || ''};${c.cat_nome || ''}\n`;
+  });
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'clientes.csv';
+  link.click();
+}
+
+
+
+function toggleFluxoCaixaSubmenu(header) {
+  const items = document.getElementById('fluxoCaixaSubmenu');
+  if (items) {
+    items.classList.toggle('collapsed');
+    header.classList.toggle('collapsed');
+  }
+}
+
+function toggleRelFCSubmenu(header) {
+  const items = document.getElementById('relFCSubmenu');
+  if (items) {
+    items.classList.toggle('collapsed');
+    header.classList.toggle('collapsed');
+  }
+}
+
+
+
 async function loadPage(page) {
   const content = document.getElementById('pageContent');
-  var tabMap = {
-    'bancos': 'contas', 'contacorrente': 'contas',
-    'extrato': 'extratos', 'conciliacao': 'conciliacao',
-    'extratoct': 'extrato_ct', 'categoria': 'categoria'
+  
+  const tabMap = {
+    'bancos': 'contas',
+    'contacorrente': 'contas',
+    'extrato': 'extratos',
+    'conciliacao': 'conciliacao',
+    'extratoct': 'extrato_ct'
   };
+
+
+  // Páginas que usam a estrutura de abas (Bancos)
   if (tabMap[page]) {
     content.innerHTML = getBancosPageHTML();
     switchTab(null, tabMap[page]);
@@ -44,7 +626,11 @@ async function loadPage(page) {
       await loadContas();
       await checkDbConnection();
     }
-  } else if (page === 'mapacli') {
+    return; // Importante para não cair nos else if seguintes
+  }
+
+  // Página: Mapa de Clientes
+  if (page === 'mapacli') {
     content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
     try {
       const resp = await fetch('/mapacli');
@@ -56,10 +642,96 @@ async function loadPage(page) {
       s.id = 'mapacliScript';
       s.src = '/js/mapacli.js';
       document.body.appendChild(s);
-    } catch(err) {
+    } catch (err) {
       content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
     }
-  } else if (page === 'subcategoria') {
+    return;
+  }
+
+
+    // Página: Demonstra Fluxo
+    // Página: Demonstra Fluxo
+  if (page === 'demonstra_fluxo') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/fluxocaixa?deonde=1');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('fcScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'fcScript';
+      s.src = '/js/fluxocaixa.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+    // Página: DFC Mensal
+  if (page === 'dfc') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      var hash = window.location.hash;
+      var params = '';
+      if (hash.indexOf('?') >= 0) params = hash.substring(hash.indexOf('?'));
+      var resp = await fetch('/dfc' + params);
+      var html = await resp.text();
+      content.innerHTML = html;
+      var old = document.getElementById('dfcScript');
+      if (old) old.remove();
+      var s = document.createElement('script');
+      s.id = 'dfcScript';
+      s.src = '/js/dfc.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+
+    // Página: Fluxo de Caixa
+  if (page === 'fluxocaixa') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/fluxocaixa');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('fcScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'fcScript';
+      s.src = '/js/fluxocaixa.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+    // Página: TPO
+  if (page === 'tpo') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/tpo');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('tpoScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'tpoScript';
+      s.src = '/js/tpo.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+  // Página: Subcategoria
+  if (page === 'subcategoria') {
     content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
     try {
       const resp = await fetch('/subcategoria');
@@ -71,12 +743,94 @@ async function loadPage(page) {
       s.id = 'subcatScript';
       s.src = '/js/subcategoria.js';
       document.body.appendChild(s);
-    } catch(err) {
+    } catch (err) {
       content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
     }
-  } else {
-    content.innerHTML = '<div class="card"><h2 style="color:var(--text-muted);text-align:center;padding:60px 0;">Modulo pendente</h2></div>';
+    return;
   }
+
+  // Página: Clientes / Fornecedores
+  if (page === 'clientes_fornecedores') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/clientes-fornecedores');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('cliScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'cliScript';
+      s.src = '/js/clientes-fornecedores.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+
+  // Página: Plano de Contas
+  if (page === 'planocontas' || page === 'categoria') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/planocontas');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('pcScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'pcScript';
+      s.src = '/js/planocontas.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+
+  // Página: Demonstra Fluxo
+  if (page === 'demonstrafluxo') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/fluxocaixa?deonde=1');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('fcScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'fcScript';
+      s.src = '/js/fluxocaixa.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+
+
+  // Página: Prestações (Lançamentos)
+  if (page === 'prestacoes' || page === 'lancamentos') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/prestacoes');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('preScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'preScript';
+      s.src = '/js/prestacoes.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+  // Caso página não reconhecida (fallback)
+  content.innerHTML = '<p style="text-align:center;padding:40px;color:var(--text-muted);">Página não encontrada</p>';
 }
 
 
@@ -324,6 +1078,10 @@ function getBancosPageHTML() {
       '</div>' +
     '</div>';
 }
+
+
+
+
 // ============================================================
 // FUNCAO AUXILIAR: safeJson
 // ============================================================
@@ -336,6 +1094,163 @@ async function safeJson(res) {
     throw new Error('Resposta invalida do servidor (nao e JSON)');
   }
 }
+
+
+function getFluxoCaixaPageHTML() {
+  return '' +
+    '<div class="tabs">' +
+      '<div class="tab active" onclick="switchTab(event,\'clientes\')">Clientes / Fornecedores</div>' +
+      '<div class="tab" onclick="switchTab(event,\'lancamentos\')">Lancamentos</div>' +
+      '<div class="tab" onclick="switchTab(event,\'planocontas\')">Plano de Contas</div>' +
+      '<div class="tab" onclick="switchTab(event,\'tpo\')">T.P.O</div>' +
+      '<div class="tab" onclick="switchTab(event,\'centrocusto\')">Centro de Custo</div>' +
+      '<div class="tab" onclick="switchTab(event,\'relfc\')">Relatorios</div>' +
+    '</div>' +
+
+    '<div id="tab-clientes" class="tab-content">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">Clientes / Fornecedores</span>' +
+          '<button class="btn btn-primary" onclick="openModalClienteFornecedor()">+ Novo</button>' +
+        '</div>' +
+        '<div class="table-container">' +
+          '<table><thead><tr>' +
+            '<th>Codigo</th><th>Nome / Razao Social</th><th>CPF / CNPJ</th><th>Tipo</th><th>Telefone</th><th>Email</th><th>Acoes</th>' +
+          '</tr></thead><tbody id="clientesFornTableBody">' +
+            '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);">Carregando...</td></tr>' +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="tab-lancamentos" class="tab-content" style="display:none;">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">Lancamentos</span>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="btn btn-outline btn-sm" onclick="openImportModalLanc()">Importar CSV</button>' +
+            '<button class="btn btn-primary btn-sm" onclick="openModalLancamento()">+ Novo Lancamento</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:nowrap; margin-bottom:12px;">' +
+          '<div class="form-group" style="flex:1; min-width:120px;">' +
+            '<label>Data Inicial</label>' +
+            '<input type="date" class="form-control" id="lancDataIni">' +
+          '</div>' +
+          '<div class="form-group" style="flex:1; min-width:120px;">' +
+            '<label>Data Final</label>' +
+            '<input type="date" class="form-control" id="lancDataFim">' +
+          '</div>' +
+          '<div class="form-group" style="flex:1; min-width:120px;">' +
+            '<label>Cliente / Fornecedor</label>' +
+            '<input type="text" class="form-control" id="lancFiltroNome" placeholder="Nome">' +
+          '</div>' +
+          '<div class="form-group" style="flex:0.6; min-width:80px;">' +
+            '<label>Tipo</label>' +
+            '<select class="form-control" id="lancFiltroTipo">' +
+              '<option value="">Todos</option>' +
+              '<option value="R">Receita</option>' +
+              '<option value="D">Despesa</option>' +
+            '</select>' +
+          '</div>' +
+          '<button class="btn btn-primary" onclick="loadLancamentos()" style="height:38px; padding:0 20px; white-space:nowrap; transform: translateY(-15px);">Filtrar</button>' +
+        '</div>' +
+        '<div class="stats-grid" style="margin-top:12px;">' +
+          '<div class="stat-card"><div class="stat-label">Total Receitas</div><div class="stat-value positive" id="totalReceitas" style="font-size:18px;">R$ 0,00</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Total Despesas</div><div class="stat-value negative" id="totalDespesas" style="font-size:18px;">R$ 0,00</div></div>' +
+          '<div class="stat-card"><div class="stat-label">Saldo</div><div class="stat-value" id="saldoLancamentos" style="font-size:18px;">R$ 0,00</div></div>' +
+        '</div>' +
+        '<div class="table-container" style="margin-top:12px;">' +
+          '<table style="font-size:11px;"><thead><tr>' +
+            '<th>Ord</th><th>Data</th><th>Tipo</th><th>Valor</th><th>Descricao</th><th>Cliente / Fornecedor</th><th>Categoria</th><th>Centro Custo</th><th>Status</th><th>Acoes</th>' +
+          '</tr></thead><tbody id="lancamentosTableBody">' +
+            '<tr><td colspan="10" style="text-align:center;color:var(--text-muted);">Use os filtros acima</td></tr>' +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="tab-planocontas" class="tab-content" style="display:none;">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">Plano de Contas</span>' +
+          '<div style="display:flex;gap:8px;">' +
+            '<button class="btn btn-primary btn-sm" onclick="openModalPlanoContas()">+ Nova Conta</button>' +
+            '<button class="btn btn-outline btn-sm" onclick="exportarPlanoContas()">Exportar</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="table-container">' +
+          '<table id="planoContasTable" style="font-size:12px;">' +
+            '<thead><tr>' +
+              '<th style="width:30px;text-align:center;">&nbsp;</th>' +
+              '<th style="width:80px;">Codigo</th>' +
+              '<th>Conta</th>' +
+              '<th style="width:70px;text-align:center;">Tipo</th>' +
+              '<th style="width:70px;text-align:center;">Nivel</th>' +
+            '</tr></thead><tbody id="planoContasTableBody">' +
+              '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Carregando...</td></tr>' +
+            '</tbody>' +
+          '</table>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="tab-tpo" class="tab-content" style="display:none;">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">T.P.O (Tabela de Parametros Operacionais)</span>' +
+          '<button class="btn btn-primary btn-sm" onclick="openModalTPO()">+ Novo</button>' +
+        '</div>' +
+        '<div class="table-container">' +
+          '<table><thead><tr>' +
+            '<th>Codigo</th><th>Descricao</th><th>Valor</th><th>Tipo</th><th>Acoes</th>' +
+          '</tr></thead><tbody id="tpoTableBody">' +
+            '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Carregando...</td></tr>' +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="tab-centrocusto" class="tab-content" style="display:none;">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">Centro de Custo</span>' +
+          '<button class="btn btn-primary btn-sm" onclick="openModalCentroCusto()">+ Novo</button>' +
+        '</div>' +
+        '<div class="table-container">' +
+          '<table><thead><tr>' +
+            '<th>Codigo</th><th>Descricao</th><th>Tipo</th><th>Status</th><th>Acoes</th>' +
+          '</tr></thead><tbody id="centroCustoTableBody">' +
+            '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);">Carregando...</td></tr>' +
+          '</tbody></table>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div id="tab-relfc" class="tab-content" style="display:none;">' +
+      '<div class="card">' +
+        '<div class="card-header">' +
+          '<span class="card-title">Relatorios do Fluxo de Caixa</span>' +
+          '<div style="display:flex;gap:8px;align-items:center;">' +
+            '<input type="number" class="form-control" id="anoRelFC" style="width:100px;" value="' + new Date().getFullYear() + '">' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex; flex-wrap:wrap; gap:12px; margin-top:12px;">' +
+          '<button class="btn btn-primary" onclick="loadRelDRE(\'' + new Date().getFullYear() + '\', \'mensal\')">Demonstra Resultado</button>' +
+          '<button class="btn btn-primary" onclick="loadRelFluxo(\'' + new Date().getFullYear() + '\')">Demonstra Fluxo</button>' +
+          '<button class="btn btn-outline" onclick="loadDREMensal()">DRE Mensal</button>' +
+          '<button class="btn btn-outline" onclick="loadDREAnual()">DRE Anual</button>' +
+          '<button class="btn btn-outline" onclick="loadDFC()">DFC</button>' +
+          '<button class="btn btn-outline" onclick="loadDFS()">DFS</button>' +
+        '</div>' +
+        '<div class="table-container" id="relFCContainer" style="margin-top:12px;">' +
+          '<p style="text-align:center;color:var(--text-muted);padding:40px;">Selecione um relatorio acima</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+
 
 
 async function loadMapaCliTab() {
@@ -1757,6 +2672,28 @@ function exportarRelatorioMensal() {
 }
 
 
+async function loadPageParams(page, params) {
+  if (page === 'dfc') {
+    var content = document.getElementById('content');
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      var resp = await fetch('/dfc' + (params || ''));
+      var html = await resp.text();
+      content.innerHTML = html;
+      var old = document.getElementById('dfcScript');
+      if (old) old.remove();
+      var s = document.createElement('script');
+      s.id = 'dfcScript';
+      s.src = '/js/dfc.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+  } else {
+    loadPage(page);
+  }
+}
+
 
 async function loadMotivos() {
   try {
@@ -2282,10 +3219,42 @@ function toggleBancosSub() {
 
 
 function toggleBancosSubmenu(header) {
-  var items = document.getElementById('bancosSubmenu');
-  header.classList.toggle('collapsed');
-  items.classList.toggle('collapsed');
+  var sub = document.getElementById('bancosSubmenu');
+  if (sub) sub.classList.toggle('collapsed');
+  if (header) header.classList.toggle('collapsed');
 }
+
+function toggleFluxoCaixaSubmenu(header) {
+  var sub = document.getElementById('fluxoCaixaSubmenu');
+  if (sub) sub.classList.toggle('collapsed');
+  if (header) header.classList.toggle('collapsed');
+}
+
+function toggleRelFCSubmenu(header) {
+  var sub = document.getElementById('relFCSubmenu');
+  if (sub) sub.classList.toggle('collapsed');
+  if (header) header.classList.toggle('collapsed');
+}
+
+
+
+
+function toggleFluxoCaixaSubmenu(header) {
+  const items = document.getElementById('fluxoCaixaSubmenu');
+  if (items) {
+    items.classList.toggle('collapsed');
+    header.classList.toggle('collapsed');
+  }
+}
+
+function toggleRelFCSubmenu(header) {
+  const items = document.getElementById('relFCSubmenu');
+  if (items) {
+    items.classList.toggle('collapsed');
+    header.classList.toggle('collapsed');
+  }
+}
+
 
 function parseDataBR(str) {
   if (!str || str.length < 8) return new Date(1900, 0, 1);

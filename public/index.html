@@ -28,6 +28,32 @@
           <a href="#" class="nav-item" data-page="mapacli"><span class="nav-icon">🗺️</span><span class="nav-label">Mapa de Clientes</span></a>
           <a href="#" class="nav-item" data-page="subcategoria"><span class="nav-icon">📂</span><span class="nav-label">Sub Categoria</span></a>
         </div>
+
+        <div class="nav-group-header collapsed" onclick="toggleFluxoCaixaSubmenu(this)">
+          <span class="nav-icon">💰</span>
+          <span class="nav-label">Fluxo de Caixa</span>
+          <span class="nav-arrow">▼</span>
+        </div>
+        <div class="nav-group-items collapsed" id="fluxoCaixaSubmenu">
+          <a href="#" class="nav-item" data-page="clientes_fornecedores"><span class="nav-icon">👤</span><span class="nav-label">Clientes / Fornecedores</span></a>
+          <a href="#" class="nav-item" data-page="prestacoes"><span class="nav-icon">📝</span><span class="nav-label">Lançamentos</span></a>
+          <a href="#" class="nav-item" data-page="planocontas"><span class="nav-icon">📊</span><span class="nav-label">Plano de Contas</span></a>
+          <a href="#" class="nav-item" data-page="tpo"><span class="nav-icon">🏷️</span><span class="nav-label">T.P.O</span></a>
+            <div class="nav-group-header sub collapsed" onclick="toggleRelFCSubmenu(this)" style="padding-left:28px;font-size:13px;">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Relatórios</span>
+            <span class="nav-arrow">▶</span>
+          </div>
+          <div class="nav-group-items sub collapsed" id="relFCSubmenu" style="padding-left:44px;">
+            <a href="#" class="nav-item" data-page="demonstra_resultado"><span class="nav-icon">📋</span><span class="nav-label">Demonstra Resultado</span></a>
+            <a href="#" class="nav-item" data-page="demonstra_fluxo"><span class="nav-icon">📊</span><span class="nav-label">Demonstra Fluxo</span></a>
+            <a href="#" class="nav-item" data-page="dre_mensal"><span class="nav-icon">📅</span><span class="nav-label">DRE Mensal</span></a>
+            <a href="#" class="nav-item" data-page="dre_anual"><span class="nav-icon">📆</span><span class="nav-label">DRE Anual</span></a>
+            <a href="#" class="nav-item" data-page="dfc"><span class="nav-icon">💹</span><span class="nav-label">DFC</span></a>
+            <a href="#" class="nav-item" data-page="dfs"><span class="nav-icon">💹</span><span class="nav-label">DFS</span></a>
+          </div>
+        </div>
+
         <a href="#" class="nav-item" data-page="estoque"><span class="nav-icon">📦</span><span class="nav-label">xEstoque</span></a>
         <a href="#" class="nav-item" data-page="funcionarios"><span class="nav-icon">👥</span><span class="nav-label">Funcionarios</span></a>
         <a href="#" class="nav-item" data-page="cadastros"><span class="nav-icon">📋</span><span class="nav-label">Cadastros</span></a>
@@ -35,7 +61,6 @@
         <a href="#" class="nav-item" data-page="nfe"><span class="nav-icon">🧾</span><span class="nav-label">NF-e</span></a>
         <a href="#" class="nav-item" data-page="crm"><span class="nav-icon">🤝</span><span class="nav-label">CRM</span></a>
         <a href="#" class="nav-item" data-page="sintegra"><span class="nav-icon">📊</span><span class="nav-label">Sintegra</span></a>
-        <a href="#" class="nav-item" data-page="fluxocaixa"><span class="nav-icon">💰</span><span class="nav-label">Fluxo de Caixa</span></a>
         <a href="#" class="nav-item" data-page="caixa"><span class="nav-icon">💵</span><span class="nav-label">Caixa</span></a>
         <a href="#" class="nav-item" data-page="repasse"><span class="nav-icon">📤</span><span class="nav-label">Repasse</span></a>
         <a href="#" class="nav-item" data-page="configura"><span class="nav-icon">⚙️</span><span class="nav-label">Configura</span></a>
@@ -52,22 +77,27 @@
         <button class="btn-toggle" onclick="toggleSidebar()">☰</button>
         <h1 id="pageTitle">Bancos</h1>
         <div class="topbar-right">
-		  <span id="operadorInfo">Carregando...</span>
-   		  <button class="btn-sair" onclick="logout()">Sair</button>
+          <span id="operadorInfo">Carregando...</span>
+          <button class="btn-sair" onclick="logout()">Sair</button>
         </div>
       </header>
       <div class="page-content" id="pageContent"></div>
     </main>
   </div>
+
   <div class="modal-overlay" id="modalOverlay" style="display:none;">
     <div class="modal" id="modal">
       <div class="modal-header">
         <h3 id="modalTitle"></h3>
-        <button class="modal-close" onclick="closeModal()">✕</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-primary btn-sm" id="modalSaveBtn" onclick="cliSalvar()">Salvar</button>
+          <button class="modal-close" onclick="closeModal()">✕</button>
+        </div>
       </div>
       <div class="modal-body" id="modalBody"></div>
     </div>
   </div>
+
   <script src="/js/app.js"></script>
 </body>
 </html>

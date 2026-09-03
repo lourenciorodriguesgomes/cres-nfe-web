@@ -1,3 +1,30 @@
+
+Passo a passo para fazer o deploy
+
+1. Abra o Prompt de Comando (cmd) ou PowerShell no seu computador
+
+
+cd C:\cres-nfe-web
+
+git status
+
+git add .
+
+git commit -m "Descreva a alteração"
+
+git push origin main
+
+
+
+cd C:\cres-nfe-web
+
+git add public/js/app.js
+git commit -m "Cria menu Fluxo de Caixa"
+git push origin main
+
+
+
+
 Passo a passo para fazer o deploy
 
 1. Abra o Prompt de Comando (cmd) ou PowerShell no seu computador

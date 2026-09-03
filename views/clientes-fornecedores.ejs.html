@@ -1,0 +1,91 @@
+<div class="mapa-toolbar" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center;">
+  <button class="mapa-btn btn-buscar" onclick="cliBuscar()">🔍 Buscar</button>
+  <input type="text" id="cliBuscaGeral" class="form-control" style="flex:1;min-width:200px;" placeholder="Digite para buscar..." oninput="cliFiltrarTabela()">
+  <button class="mapa-btn btn-novo" onclick="cliAbrirNovo()">➕ Novo</button>
+  <button class="mapa-btn btn-excel" onclick="cliExportarExcel()">📊 Excel</button>
+  <button class="mapa-btn btn-imprimir" onclick="cliImprimir()">🖨️ Imprimir</button>
+  <span id="cliStatusInfo" style="margin-left:auto;font-size:12px;color:var(--text-muted);">Total: <%= clientes.length %> cliente(s)</span>
+</div>
+
+<div class="card">
+  <div class="table-container">
+    <table id="cliTabela" style="font-size:12px;width:100%;">
+      <thead>
+        <tr style="background:#1a1d29;color:#fff;cursor:pointer;">
+          <th style="width:40px;" onclick="cliOrdenar(0)">Ord</th>
+          <th style="width:80px;" onclick="cliOrdenar(1)">Código</th>
+          <th onclick="cliOrdenar(2)">Nome do Cliente</th>
+          <th style="width:150px;" onclick="cliOrdenar(3)">Endereço</th>
+          <th style="width:100px;" onclick="cliOrdenar(4)">Bairro</th>
+          <th style="width:100px;" onclick="cliOrdenar(5)">Cidade</th>
+          <th style="width:30px;" onclick="cliOrdenar(6)">UF</th>
+          <th style="width:90px;" onclick="cliOrdenar(7)">Telefone</th>
+          <th style="width:100px;" onclick="cliOrdenar(8)">CPF/CNPJ</th>
+          <th style="width:80px;" onclick="cliOrdenar(9)">Categoria</th>
+          <th style="width:80px;">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="cliCorpoTabela">
+        <% clientes.forEach((c, i) => { %>
+          <tr data-id="<%= c.cdcliente %>" onclick="cliSelecionarLinha(this)" ondblclick="cliEditar('<%= c.cdcliente %>')" style="cursor:pointer;">
+            <td style="text-align:center;"><%= i + 1 %></td>
+            <td><%= c.cdcliente || '' %></td>
+            <td style="font-weight:500;"><%= c.nomecli || '' %></td>
+            <td><%= c.endereco || '' %></td>
+            <td><%= c.bairro || '' %></td>
+            <td><%= c.cidade || '' %></td>
+            <td style="text-align:center;"><%= c.estado || '' %></td>
+            <td><%= c.telefone || '' %></td>
+            <td><%= c.cpf || '' %></td>
+            <td style="text-align:center;"><%= c.cat_nome || c.cat_codigo || '' %></td>
+            <td style="text-align:center;white-space:nowrap;">
+              <button class="mapa-btn btn-editar" onclick="event.stopPropagation();cliEditar('<%= c.cdcliente %>')">✏️</button>
+              <button class="mapa-btn btn-excluir" onclick="event.stopPropagation();cliExcluir('<%= c.cdcliente %>', '<%= (c.nomecli||'').replace(/'/g, "\'") %>')">🗑️</button>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Editar -->
+<div id="cliOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;">
+  <div id="cliModalEditar" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:8px;padding:20px;width:500px;max-width:90%;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:1001;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 id="cliTituloModal">Editar Cliente</h3>
+      <button onclick="cliFecharModal()" style="background:none;border:none;font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <input type="hidden" id="cliEditId">
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div style="display:flex;gap:10px;">
+        <div style="flex:0.3;"><label>Código</label><input type="text" class="form-control" id="cli_cdcliente"></div>
+        <div style="flex:1;"><label>Nome / Razão Social</label><input type="text" class="form-control" id="cli_nomecli"></div>
+      </div>
+      <div><label>Endereço</label><input type="text" class="form-control" id="cli_endereco"></div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label>Bairro</label><input type="text" class="form-control" id="cli_bairro"></div>
+        <div style="flex:1;"><label>Cidade</label><input type="text" class="form-control" id="cli_cidade"></div>
+        <div style="flex:0.2;"><label>UF</label><input type="text" class="form-control" id="cli_estado" maxlength="2"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;"><label>Telefone</label><input type="text" class="form-control" id="cli_telefone"></div>
+        <div style="flex:0.5;"><label>CPF/CNPJ</label><input type="text" class="form-control" id="cli_cpf"></div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div style="flex:1;">
+          <label>Categoria</label>
+          <select class="form-control" id="cli_categoria"><option value="">Selecione...</option></select>
+        </div>
+        <div style="flex:1;">
+          <label>Subcategoria</label>
+          <select class="form-control" id="cli_subcategoria"><option value="">Selecione...</option></select>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
+      <button class="mapa-btn btn-novo" onclick="cliSalvar()">💾 Salvar</button>
+      <button class="mapa-btn" onclick="cliFecharModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
