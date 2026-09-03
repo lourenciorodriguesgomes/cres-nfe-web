@@ -14,6 +14,7 @@ const prestacoesRoutes = require('./routes/prestacoes');
 const tpoRoutes = require('./routes/tpo');
 const fluxocaixaRoutes = require('./routes/fluxocaixa');
 const dfcRoutes = require('./routes/dfc');
+const importarExtratoRoutes = require('./routes/importar_extrato');
 const subcategoriaRoutes = require('./routes/subcategoria');
 const planocontasRoutes = require('./routes/planocontas');
 const loginRoutes = require('./routes/login');
@@ -65,6 +66,7 @@ app.use('/subcategoria', subcategoriaRoutes);
 app.use('/tpo', tpoRoutes);
 app.use('/fluxocaixa', fluxocaixaRoutes);
 app.use('/dfc', dfcRoutes);
+app.use('/importar_extrato', importarExtratoRoutes);
 app.use('/planocontas', planocontasRoutes);
 // Rota para categorias
 app.get('/api/bancos/categorias', async (req, res) => {

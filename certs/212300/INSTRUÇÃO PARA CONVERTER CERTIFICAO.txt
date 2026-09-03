@@ -1,0 +1,14 @@
+Passos para transformar o certificado de .PFX para .PEN  .KEY
+
+com esta versão instalada: 
+
+C:\API\Sicoobgua>openssl version
+OpenSSL 3.0.21 9 Jun 2026 (Library: OpenSSL 3.0.21 9 Jun 2026)
+
+
+cd C:\caminho\do\seu\pfx   
+set OPENSSL_MODULES=C:\OpenSSL-Win64\bin
+
+openssl pkcs12 -in seu_arquivo.pfx -nokeys -out seu_arquivo.pem -legacy
+
+openssl pkcs12 -in seu_arquivo.pfx -nocerts -out seu_arquivo.key -nodes -legacy

@@ -669,6 +669,28 @@ async function loadPage(page) {
     return;
   }
 
+  // Página: Importar Extrato
+  if (page === 'importar_extrato') {
+    content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
+    try {
+      const resp = await fetch('/importar_extrato');
+      const html = await resp.text();
+      content.innerHTML = html;
+      const old = document.getElementById('impScript');
+      if (old) old.remove();
+      const s = document.createElement('script');
+      s.id = 'impScript';
+      s.src = '/js/importar_extrato.js';
+      document.body.appendChild(s);
+    } catch (err) {
+      content.innerHTML = '<p style="text-align:center;padding:40px;color:red;">Erro: ' + err.message + '</p>';
+    }
+    return;
+  }
+
+
+
+
     // Página: DFC Mensal
   if (page === 'dfc') {
     content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
@@ -692,6 +714,7 @@ async function loadPage(page) {
   }
 
 
+    
     // Página: Fluxo de Caixa
   if (page === 'fluxocaixa') {
     content.innerHTML = '<p style="text-align:center;padding:40px;">Carregando...</p>';
@@ -851,8 +874,13 @@ function getBancosPageHTML() {
       '<div class="card">' +
         '<div class="card-header">' +
           '<span class="card-title">Contas Correntes</span>' +
+          '<div class="card-header">' +
+          '<span class="card-title">Contas Correntes</span>' +
+          '<button onclick="loadPage(\'importar_extrato\')" style="background:#4a6fa5;color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:13px;">Importar Extrato</button>' +
           '<button class="btn btn-primary" onclick="openModalConta()">+ Nova Conta</button>' +
         '</div>' +
+          '<button class="btn btn-primary" onclick="openModalConta()">+ Nova Conta</button>' +
+         '</div>' +
         '<div class="table-container">' +
           '<table><thead><tr>' +
             '<th>Banco</th><th>Agencia</th><th>Conta</th><th>Titular</th><th>Client ID</th><th>Certificados</th><th>Acoes</th>' +

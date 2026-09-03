@@ -24,6 +24,10 @@ git push origin main
 
 
 
+https://cres-nfe-web-production.up.railway.app/
+
+
+
 
 Passo a passo para fazer o deploy
 
